@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import io from "socket.io-client";
 import './ChatPage.css';
 
-const socket = io("http://localhost:5000");
+const socket = io("https://hello-anonymous.onrender.com");
 
 function ChatPage() {
     const [message, setMessage] = useState("");
