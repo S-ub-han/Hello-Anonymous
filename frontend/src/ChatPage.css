@@ -1,87 +1,126 @@
-/* src/ChatPage.css */
+/* ChatPage.css */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    background-color: #111;
+}
+
+/* Chat container */
 .chat-container {
     display: flex;
     flex-direction: column;
-    height: 90vh;
-    background-color: #0d1117;
-    padding: 20px;
-    overflow-y: auto;
-    border-radius: 10px;
-    border: 2px solid #444;
-    margin: 0 auto;
-    width: 90%;
-    max-width: 700px;
-    margin-bottom: 20px;
-    color: #c9d1d9;
+    max-width: 100%;
+    height: 100vh;
+    padding: 0;
+    background-color: #1e1e1e;
+    color: #fff;
+    overflow: hidden;
 }
 
-.chat-box {
+/* Message area */
+.messages {
     flex-grow: 1;
     overflow-y: auto;
-    padding-bottom: 20px;
-    border-radius: 8px;
-}
-
-.message {
-    background-color: #161b22;
     padding: 15px;
-    margin-bottom: 15px;
-    border-radius: 10px;
-    border-left: 5px solid #238636;
-    color: #c9d1d9;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
-    cursor: pointer;
-    position: relative;
+    margin-bottom: 60px; /* Space for input box */
+    scrollbar-width: thin;
+    scrollbar-color: #555 #1e1e1e;
 }
 
-.message .timestamp {
-    font-size: 12px;
-    color: #8b949e;
-    margin-top: 5px;
-    text-align: right;
+/* Custom scrollbar */
+.messages::-webkit-scrollbar {
+    width: 6px;
+}
+.messages::-webkit-scrollbar-thumb {
+    background-color: #555;
+    border-radius: 3px;
 }
 
-.input-container {
-    display: flex;
-    gap: 10px;
-    padding: 10px;
-    background-color: #161b22;
-    border-radius: 10px;
-    border: 2px solid #444;
-    margin-top: 10px;
-}
-
-.input-container input {
-    flex-grow: 1;
-    padding: 10px;
-    border-radius: 5px;
-    border: none;
-    background-color: #21262d;
-    color: #c9d1d9;
+/* My message (right aligned) */
+.my-message {
+    background-color: #4caf50;
+    color: #fff;
+    padding: 10px 15px;
+    border-radius: 15px 0 15px 15px;
+    margin-bottom: 10px;
+    align-self: flex-end;
+    max-width: 75%;
+    word-wrap: break-word;
     font-size: 14px;
 }
 
-.input-container button {
-    padding: 10px 20px;
-    background-color: #238636;
+/* Other message (left aligned) */
+.other-message {
+    background-color: #333;
+    color: #ddd;
+    padding: 10px 15px;
+    border-radius: 0 15px 15px 15px;
+    margin-bottom: 10px;
+    align-self: flex-start;
+    max-width: 75%;
+    word-wrap: break-word;
+    font-size: 14px;
+}
+
+/* Message input area */
+.message-input {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    background-color: #222;
+    padding: 10px 15px;
+    display: flex;
+    gap: 10px;
+    border-top: 1px solid #444;
+}
+
+/* Input field */
+.message-input input {
+    flex-grow: 1;
+    padding: 10px;
+    border-radius: 20px;
+    border: none;
+    outline: none;
+    background-color: #333;
+    color: #ddd;
+    font-size: 14px;
+}
+
+/* Send button */
+.message-input button {
+    background-color: #4caf50;
     color: #fff;
     border: none;
-    border-radius: 5px;
+    border-radius: 20px;
+    padding: 10px 20px;
     cursor: pointer;
     font-weight: bold;
     transition: background-color 0.3s;
 }
 
-.input-container button:hover {
-    background-color: #2ea043;
+.message-input button:hover {
+    background-color: #388e3c;
 }
 
-.reply {
-    background-color: #0d1117;
-    border-left: 5px solid #444c56;
-    margin-bottom: 5px;
-    padding: 10px;
-    border-radius: 5px;
-    font-size: 14px;
-    color: #8b949e;
+/* Mobile optimization */
+@media only screen and (max-width: 768px) {
+    .my-message, .other-message {
+        max-width: 85%;
+        font-size: 12px;
+    }
+
+    .message-input {
+        padding: 5px 10px;
+    }
+
+    .message-input input {
+        font-size: 12px;
+        padding: 8px;
+    }
+
+    .message-input button {
+        padding: 8px 15px;
+        font-size: 12px;
+    }
 }

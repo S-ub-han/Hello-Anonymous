@@ -1,77 +1,58 @@
-// src/ChatPage.jsx
-import React, { useState, useEffect } from "react";
-import io from "socket.io-client";
+// ChatPage.jsx (Frontend)
+import React, { useState, useEffect } from 'react';
+import io from 'socket.io-client';
 import './ChatPage.css';
 
-const socket = io("https://hello-anonymous.onrender.com");
-
-function ChatPage() {
-    const [message, setMessage] = useState("");
+const ChatPage = () => {
     const [messages, setMessages] = useState([]);
-    const [reply, setReply] = useState(null);
+    const [message, setMessage] = useState('');
+    const [userId, setUserId] = useState(localStorage.getItem('userId') || '');
+    const socket = io('http://localhost:5000');
 
     useEffect(() => {
-        socket.on("receive_message", (data) => {
-            setMessages((prevMessages) => [...prevMessages, data]);
+        // Generate unique user ID if not already set
+        if (!userId) {
+            const newUserId = 'user_' + Date.now();
+            setUserId(newUserId);
+            localStorage.setItem('userId', newUserId);
+        }
 
-            // Auto-scroll to the latest message
-            setTimeout(() => {
-                const chatContainer = document.querySelector(".chat-container");
-                if (chatContainer) {
-                    chatContainer.scrollTop = chatContainer.scrollHeight;
-                }
-            }, 100);
+        // Load previous messages
+        socket.on('previousMessages', (loadedMessages) => {
+            setMessages(loadedMessages);
         });
 
-        return () => {
-            socket.off("receive_message");
-        };
-    }, []);
+        // Receive new messages
+        socket.on('chatMessage', (newMessage) => {
+            setMessages((prevMessages) => [...prevMessages, newMessage]);
+        });
+
+        return () => socket.disconnect();
+    }, [userId, socket]); // ✅ Fixed warning by including socket in dependency array
 
     const sendMessage = () => {
-        if (message.trim() !== "") {
-            const data = {
-                text: message,
-                timestamp: new Date().toLocaleTimeString(),
-                reply: reply,
-            };
-            socket.emit("send_message", data);
-            setMessage("");
-            setReply(null);
+        if (message.trim()) {
+            socket.emit('chatMessage', { userId, message });
+            setMessage('');
         }
     };
 
     const handleKeyPress = (e) => {
-        if (e.key === "Enter") {
+        if (e.key === 'Enter') {
             sendMessage();
         }
     };
 
-    const handleReply = (message) => {
-        setReply(message);
-    };
-
     return (
         <div className="chat-container">
-            <div className="chat-box">
+            <div className="messages">
                 {messages.map((msg, index) => (
-                    <div key={index} className="message" onClick={() => handleReply(msg)}>
-                        {msg.reply && (
-                            <div className="reply">
-                                <strong>Reply:</strong> {msg.reply.text}
-                            </div>
-                        )}
-                        <span className="message-text">{msg.text}</span>
-                        <span className="timestamp">{msg.timestamp}</span>
+                    <div key={index} className={msg.userId === userId ? 'my-message' : 'other-message'}>
+                        {msg.message}
                     </div>
                 ))}
             </div>
-            {reply && (
-                <div className="reply-preview">
-                    Replying to: {reply.text} <button onClick={() => setReply(null)}>Cancel</button>
-                </div>
-            )}
-            <div className="input-container">
+            <div className="message-input">
                 <input
                     type="text"
                     value={message}
@@ -83,6 +64,6 @@ function ChatPage() {
             </div>
         </div>
     );
-}
+};
 
 export default ChatPage;
