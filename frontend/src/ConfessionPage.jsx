@@ -13,7 +13,7 @@ function ConfessionPage() {
 
     const fetchConfessions = async () => {
         try {
-            const response = await axios.get('http://localhost:5000/api/confession/messages');
+            const response = await axios.get('https://hello-anonymous.onrender.com/api/confession/messages');
             setConfessions(response.data);
             scrollToBottom();
         } catch (error) {
@@ -24,7 +24,7 @@ function ConfessionPage() {
     const handleSendConfession = async () => {
         if (confession.trim() === '') return;
         try {
-            const response = await axios.post('http://localhost:5000/api/confession/messages', { text: confession });
+            const response = await axios.post('https://hello-anonymous.onrender.com/api/confession/messages', { text: confession });
             setConfessions([...confessions, response.data]);
             setConfession('');
             scrollToBottom();
