@@ -1,69 +1,72 @@
-// ChatPage.jsx (Frontend)
-import React, { useState, useEffect } from 'react';
-import io from 'socket.io-client';
+import React, { useState, useEffect, useRef } from 'react';
 import './ChatPage.css';
+import axios from 'axios';
 
-const ChatPage = () => {
-    const [messages, setMessages] = useState([]);
+function ChatPage() {
     const [message, setMessage] = useState('');
-    const [userId, setUserId] = useState(localStorage.getItem('userId') || '');
-    const socket = io('http://localhost:5000');
+    const [messages, setMessages] = useState([]);
+    const messagesEndRef = useRef(null);
 
     useEffect(() => {
-        // Generate unique user ID if not already set
-        if (!userId) {
-            const newUserId = 'user_' + Date.now();
-            setUserId(newUserId);
-            localStorage.setItem('userId', newUserId);
+        fetchMessages();
+    }, []);
+
+    const fetchMessages = async () => {
+        try {
+            const response = await axios.get('http://localhost:5000/api/chat/messages');
+            setMessages(response.data);
+            scrollToBottom();
+        } catch (error) {
+            console.error('Error fetching messages:', error);
         }
+    };
 
-        // Load previous messages
-        socket.on('previousMessages', (loadedMessages) => {
-            setMessages(loadedMessages);
-        });
-
-        // Receive new messages
-        socket.on('chatMessage', (newMessage) => {
-            setMessages((prevMessages) => [...prevMessages, newMessage]);
-        });
-
-        return () => socket.disconnect();
-    }, [userId, socket]); // ✅ Fixed warning by including socket in dependency array
-
-    const sendMessage = () => {
-        if (message.trim()) {
-            socket.emit('chatMessage', { userId, message });
+    const handleSendMessage = async () => {
+        if (message.trim() === '') return;
+        try {
+            const response = await axios.post('http://localhost:5000/api/chat/messages', { text: message });
+            setMessages([...messages, response.data]);
             setMessage('');
+            scrollToBottom();
+        } catch (error) {
+            console.error('Error sending message:', error);
         }
     };
 
     const handleKeyPress = (e) => {
-        if (e.key === 'Enter') {
-            sendMessage();
-        }
+        if (e.key === 'Enter') handleSendMessage();
+    };
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
     return (
         <div className="chat-container">
-            <div className="messages">
+            <div className="chat-header">
+                <h1>Chat Room</h1>
+            </div>
+            <div className="chat-messages">
                 {messages.map((msg, index) => (
-                    <div key={index} className={msg.userId === userId ? 'my-message' : 'other-message'}>
-                        {msg.message}
+                    <div key={index} className="chat-message">
+                        {msg.text}
                     </div>
                 ))}
+                <div ref={messagesEndRef}></div>
             </div>
-            <div className="message-input">
+            <div className="chat-input-container">
                 <input
                     type="text"
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    placeholder="Type your message..."
+                    placeholder="Type a message..."
                 />
-                <button onClick={sendMessage}>Send</button>
+                <button onClick={handleSendMessage}>Send</button>
             </div>
+            <div className="footer">Developed by Subhan Khan</div>
         </div>
     );
-};
+}
 
 export default ChatPage;

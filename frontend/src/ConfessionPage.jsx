@@ -1,62 +1,72 @@
-// ConfessionPage.jsx (Frontend)
-import React, { useState, useEffect } from 'react';
-import io from 'socket.io-client';
+import React, { useState, useEffect, useRef } from 'react';
 import './ConfessionPage.css';
+import axios from 'axios';
 
-const ConfessionPage = () => {
-    const [messages, setMessages] = useState([]);
-    const [message, setMessage] = useState('');
-    const [userId, setUserId] = useState(localStorage.getItem('userId') || '');
-    const socket = io('http://localhost:5000');
+function ConfessionPage() {
+    const [confession, setConfession] = useState('');
+    const [confessions, setConfessions] = useState([]);
+    const confessionsEndRef = useRef(null);
 
     useEffect(() => {
-        // Generate unique user ID if not already set
-        if (!userId) {
-            const newUserId = 'user_' + Date.now();
-            setUserId(newUserId);
-            localStorage.setItem('userId', newUserId);
+        fetchConfessions();
+    }, []);
+
+    const fetchConfessions = async () => {
+        try {
+            const response = await axios.get('http://localhost:5000/api/confession/messages');
+            setConfessions(response.data);
+            scrollToBottom();
+        } catch (error) {
+            console.error('Error fetching confessions:', error);
         }
+    };
 
-        // Load previous messages
-        socket.on('previousMessages', (loadedMessages) => {
-            setMessages(loadedMessages);
-        });
-
-        // Receive new messages
-        socket.on('chatMessage', (newMessage) => {
-            setMessages((prevMessages) => [...prevMessages, newMessage]);
-        });
-
-        return () => socket.disconnect();
-    }, [userId]);
-
-    const sendMessage = () => {
-        if (message.trim()) {
-            socket.emit('chatMessage', { userId, message });
-            setMessage('');
+    const handleSendConfession = async () => {
+        if (confession.trim() === '') return;
+        try {
+            const response = await axios.post('http://localhost:5000/api/confession/messages', { text: confession });
+            setConfessions([...confessions, response.data]);
+            setConfession('');
+            scrollToBottom();
+        } catch (error) {
+            console.error('Error sending confession:', error);
         }
+    };
+
+    const handleKeyPress = (e) => {
+        if (e.key === 'Enter') handleSendConfession();
+    };
+
+    const scrollToBottom = () => {
+        confessionsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
     return (
         <div className="confession-container">
-            <div className="messages">
-                {messages.map((msg, index) => (
-                    <div key={index} className={msg.userId === userId ? 'my-confession' : 'other-confession'}>
-                        {msg.message}
+            <div className="confession-header">
+                <h1>Confession Room</h1>
+            </div>
+            <div className="confession-messages">
+                {confessions.map((msg, index) => (
+                    <div key={index} className="confession-message">
+                        {msg.text}
                     </div>
                 ))}
+                <div ref={confessionsEndRef}></div>
             </div>
-            <div className="message-input">
+            <div className="confession-input-container">
                 <input
                     type="text"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Confess your thoughts..."
+                    value={confession}
+                    onChange={(e) => setConfession(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Type a confession..."
                 />
-                <button onClick={sendMessage}>Confess</button>
+                <button onClick={handleSendConfession}>Send</button>
             </div>
+            <div className="footer">Developed by Subhan Khan</div>
         </div>
     );
-};
+}
 
 export default ConfessionPage;

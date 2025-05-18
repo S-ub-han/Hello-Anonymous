@@ -1,126 +1,61 @@
-/* ConfessionPage.css */
-body {
-    margin: 0;
-    padding: 0;
-    font-family: Arial, sans-serif;
+.confession-container {
     background-color: #330000;
+    color: #ffffff;
+    min-height: 100vh;
+    padding: 20px;
 }
 
-/* Chat container */
-.chat-container {
-    display: flex;
-    flex-direction: column;
-    max-width: 100%;
-    height: 100vh;
-    padding: 0;
-    background-color: #400000;
-    color: #fff;
-    overflow: hidden;
+.confession-header {
+    text-align: center;
+    color: #ffcccc;
+    font-size: 2em;
+    margin-bottom: 20px;
+    text-shadow: 0 0 10px #ffcccc;
 }
 
-/* Message area */
-.messages {
-    flex-grow: 1;
+.confession-messages {
+    max-height: 70vh;
     overflow-y: auto;
-    padding: 15px;
-    margin-bottom: 60px; /* Space for input box */
-    scrollbar-width: thin;
-    scrollbar-color: #555 #400000;
-}
-
-/* Custom scrollbar */
-.messages::-webkit-scrollbar {
-    width: 6px;
-}
-.messages::-webkit-scrollbar-thumb {
-    background-color: #800000;
-    border-radius: 3px;
-}
-
-/* My message (right aligned) */
-.my-message {
-    background-color: #990000;
-    color: #fff;
-    padding: 10px 15px;
-    border-radius: 15px 0 15px 15px;
-    margin-bottom: 10px;
-    align-self: flex-end;
-    max-width: 75%;
-    word-wrap: break-word;
-    font-size: 14px;
-}
-
-/* Other message (left aligned) */
-.other-message {
+    margin-bottom: 20px;
+    padding: 10px;
     background-color: #660000;
-    color: #ddd;
-    padding: 10px 15px;
-    border-radius: 0 15px 15px 15px;
-    margin-bottom: 10px;
-    align-self: flex-start;
-    max-width: 75%;
-    word-wrap: break-word;
-    font-size: 14px;
+    border-radius: 10px;
 }
 
-/* Message input area */
-.message-input {
-    position: fixed;
-    bottom: 0;
-    width: 100%;
-    background-color: #550000;
-    padding: 10px 15px;
+.confession-message {
+    background-color: #990000;
+    color: #ffffff;
+    padding: 10px;
+    margin: 5px 0;
+    border-radius: 5px;
+    font-size: 1.2em;
+    text-shadow: 0 0 5px #ff9999;
+}
+
+.confession-input-container {
     display: flex;
     gap: 10px;
-    border-top: 1px solid #800000;
 }
 
-/* Input field */
-.message-input input {
-    flex-grow: 1;
+.confession-input-container input {
+    flex: 1;
     padding: 10px;
-    border-radius: 20px;
+    border-radius: 5px;
     border: none;
-    outline: none;
-    background-color: #660000;
-    color: #ddd;
-    font-size: 14px;
 }
 
-/* Send button */
-.message-input button {
-    background-color: #990000;
-    color: #fff;
-    border: none;
-    border-radius: 20px;
+.confession-input-container button {
     padding: 10px 20px;
-    cursor: pointer;
-    font-weight: bold;
-    transition: background-color 0.3s;
-}
-
-.message-input button:hover {
     background-color: #cc0000;
+    color: #ffffff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
 }
 
-/* Mobile optimization */
-@media only screen and (max-width: 768px) {
-    .my-message, .other-message {
-        max-width: 85%;
-        font-size: 12px;
-    }
-
-    .message-input {
-        padding: 5px 10px;
-    }
-
-    .message-input input {
-        font-size: 12px;
-        padding: 8px;
-    }
-
-    .message-input button {
-        padding: 8px 15px;
-        font-size: 12px;
-    }
+.footer {
+    text-align: center;
+    margin-top: 20px;
+    color: #ff9999;
+    font-size: 0.8em;
 }
