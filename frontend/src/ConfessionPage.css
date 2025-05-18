@@ -1,27 +1,31 @@
+/* Container styling */
 .confession-container {
     background-color: #330000;
     color: #ffffff;
-    min-height: 100vh;
-    padding: 20px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
+/* Header styling */
 .confession-header {
     text-align: center;
     color: #ffcccc;
     font-size: 2em;
-    margin-bottom: 20px;
+    padding: 15px 0;
     text-shadow: 0 0 10px #ffcccc;
 }
 
+/* Messages area styling */
 .confession-messages {
-    max-height: 70vh;
+    flex-grow: 1;
     overflow-y: auto;
-    margin-bottom: 20px;
     padding: 10px;
     background-color: #660000;
     border-radius: 10px;
 }
 
+/* Individual message styling */
 .confession-message {
     background-color: #990000;
     color: #ffffff;
@@ -32,30 +36,46 @@
     text-shadow: 0 0 5px #ff9999;
 }
 
+/* Input area styling */
 .confession-input-container {
     display: flex;
     gap: 10px;
+    padding: 15px;
+    background-color: #330000;
+    border-top: 2px solid #660000;
 }
 
+/* Input field styling */
 .confession-input-container input {
     flex: 1;
-    padding: 10px;
+    padding: 15px;
     border-radius: 5px;
     border: none;
+    background-color: #550000;
+    color: #ffffff;
 }
 
+/* Send button styling */
 .confession-input-container button {
-    padding: 10px 20px;
+    padding: 15px 20px;
     background-color: #cc0000;
     color: #ffffff;
     border: none;
-    border-radius: 5px;
+    border-radius: 8px;
     cursor: pointer;
 }
 
+/* Footer styling
 .footer {
     text-align: center;
-    margin-top: 20px;
-    color: #ff9999;
+    background-color: #110404;
+    color: #ffffff;
     font-size: 0.8em;
-}
+    padding: 5px 0;
+    border-top: 2px solid #bb0a0a;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    z-index: 8;
+} */

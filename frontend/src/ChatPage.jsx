@@ -13,7 +13,7 @@ function ChatPage() {
 
     const fetchMessages = async () => {
         try {
-            const response = await axios.get('https://hello-anonymous.onrender.com/api/chat/messages');
+            const response = await axios.get('http://localhost:5000/api/chat/messages');
             setMessages(response.data);
             scrollToBottom();
         } catch (error) {
@@ -24,7 +24,7 @@ function ChatPage() {
     const handleSendMessage = async () => {
         if (message.trim() === '') return;
         try {
-            const response = await axios.post('https://hello-anonymous.onrender.com/api/chat/messages', { text: message });
+            const response = await axios.post('http://localhost:5000/api/chat/messages', { text: message });
             setMessages([...messages, response.data]);
             setMessage('');
             scrollToBottom();
@@ -43,9 +43,6 @@ function ChatPage() {
 
     return (
         <div className="chat-container">
-            <div className="chat-header">
-                <h1>Chat Room</h1>
-            </div>
             <div className="chat-messages">
                 {messages.map((msg, index) => (
                     <div key={index} className="chat-message">
