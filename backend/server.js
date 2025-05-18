@@ -10,10 +10,7 @@ app.use(express.json());
 
 // MongoDB Connection
 const mongoURI = process.env.MONGO_URI || 'mongodb+srv://helloanonymous:SSiimm04@@cluster0.cwrjhgg.mongodb.net/hello-anonymous?retryWrites=true&w=majority';
-mongoose.connect(mongoURI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
+mongoose.connect(mongoURI);
 
 mongoose.connection.on('connected', () => {
   console.log('Connected to MongoDB successfully');
