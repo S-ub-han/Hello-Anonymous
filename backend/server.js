@@ -9,7 +9,7 @@ app.use(cors());
 app.use(express.json());
 
 // MongoDB Connection
-const mongoURI = process.env.MONGO_URI || 'mongodb+srv://helloanonymous:SSiimm04@@cluster0.cwrjhgg.mongodb.net/hello-anonymous?retryWrites=true&w=majority';
+const mongoURI = process.env.MONGO_URI || 'mongodb+srv://subhankhann95:MsRLzJIVLouXlfdP@cluster0.s5f4zdn.mongodb.net/hello_anonymous?retryWrites=true&w=majority';
 mongoose.connect(mongoURI);
 
 mongoose.connection.on('connected', () => {
