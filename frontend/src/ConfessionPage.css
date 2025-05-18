@@ -65,17 +65,17 @@
     cursor: pointer;
 }
 
-/* Footer styling
+/* Footer styling */
 .footer {
     text-align: center;
-    background-color: #110404;
+    background-color: #000000;
     color: #ffffff;
     font-size: 0.8em;
     padding: 5px 0;
-    border-top: 2px solid #bb0a0a;
+    border-top: 2px solid #000000;
     position: fixed;
     bottom: 0;
     left: 0;
     width: 100%;
     z-index: 8;
-} */
+}
