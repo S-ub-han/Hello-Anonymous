@@ -64,7 +64,7 @@ function ConfessionPage() {
                 />
                 <button onClick={handleSendConfession}>Send</button>
             </div>
-            <div className="footer">Developed by Subhan Khan</div>
+            {/* <div className="footer">Developed by Subhan Khan</div> */}
         </div>
     );
 }
