@@ -9,7 +9,7 @@ function ConfessionPage() {
 
     useEffect(() => {
         fetchConfessions();
-    }, []);
+    }, [fetchConfessions]);
 
     const fetchConfessions = async () => {
         try {
