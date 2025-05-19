@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './ConfessionPage.css';
 import axios from 'axios';
 
@@ -7,11 +7,7 @@ function ConfessionPage() {
     const [confessions, setConfessions] = useState([]);
     const confessionsEndRef = useRef(null);
 
-    useEffect(() => {
-        fetchConfessions();
-    }, [fetchConfessions]);
-
-    const fetchConfessions = async () => {
+    const fetchConfessions = useCallback(async () => {
         try {
             const response = await axios.get('https://hello-anonymous.onrender.com/api/confession/messages');
             setConfessions(response.data);
@@ -19,7 +15,11 @@ function ConfessionPage() {
         } catch (error) {
             console.error('Error fetching confessions:', error);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchConfessions();
+    }, [fetchConfessions]);
 
     const handleSendConfession = async () => {
         if (confession.trim() === '') return;

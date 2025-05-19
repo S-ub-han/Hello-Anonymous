@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './ChatPage.css';
 import axios from 'axios';
 
@@ -7,11 +7,7 @@ function ChatPage() {
     const [messages, setMessages] = useState([]);
     const messagesEndRef = useRef(null);
 
-    useEffect(() => {
-        fetchMessages();
-    }, [fetchMessages]);
-
-    const fetchMessages = async () => {
+    const fetchMessages = useCallback(async () => {
         try {
             const response = await axios.get('https://hello-anonymous.onrender.com/api/chat/messages');
             setMessages(response.data);
@@ -19,7 +15,11 @@ function ChatPage() {
         } catch (error) {
             console.error('Error fetching messages:', error);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchMessages();
+    }, [fetchMessages]);
 
     const handleSendMessage = async () => {
         if (message.trim() === '') return;
