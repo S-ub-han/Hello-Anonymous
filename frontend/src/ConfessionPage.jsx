@@ -43,9 +43,8 @@ function ConfessionPage() {
 
     return (
         <div className="confession-container">
-            <div className="confession-header">
-                Confession Room
-            </div>
+            <div className="confession-header">Confession Room</div>
+
             <div className="confession-messages">
                 {confessions.map((msg, index) => (
                     <div key={index} className="confession-message">
@@ -54,6 +53,7 @@ function ConfessionPage() {
                 ))}
                 <div ref={confessionsEndRef}></div>
             </div>
+
             <div className="confession-input-container">
                 <input
                     type="text"
@@ -64,7 +64,8 @@ function ConfessionPage() {
                 />
                 <button onClick={handleSendConfession}>Send</button>
             </div>
-            {/* <div className="footer">Developed by Subhan Khan</div> */}
+
+            <div className="footer">Developed by Subhan Khan</div>
         </div>
     );
 }

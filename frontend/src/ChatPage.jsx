@@ -43,6 +43,8 @@ function ChatPage() {
 
     return (
         <div className="chat-container">
+            <div className="chat-header">Chat Room</div>
+
             <div className="chat-messages">
                 {messages.map((msg, index) => (
                     <div key={index} className="chat-message">
@@ -51,6 +53,7 @@ function ChatPage() {
                 ))}
                 <div ref={messagesEndRef}></div>
             </div>
+
             <div className="chat-input-container">
                 <input
                     type="text"
@@ -61,6 +64,7 @@ function ChatPage() {
                 />
                 <button onClick={handleSendMessage}>Send</button>
             </div>
+
             <div className="footer">Developed by Subhan Khan</div>
         </div>
     );
