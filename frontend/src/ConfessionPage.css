@@ -27,16 +27,32 @@
     padding: 10px;
     background-color: #660000;
     border-radius: 0 0 10px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 .confession-message {
     background-color: #990000;
     color: #ffffff;
-    padding: 10px;
-    margin: 5px 0;
+    padding: 12px 16px;
+    margin: 0;
     border-radius: 5px;
     font-size: 1.2em;
-    text-shadow: 0 0 5px #ff9999;
+    box-shadow: 0 0 8px 2px #ff4d4d;
+    max-width: 70%;
+    word-wrap: break-word;
+}
+
+/* Zig-zag alignment */
+.confession-message:nth-child(odd) {
+    align-self: flex-start;
+    border-top-left-radius: 0;
+}
+
+.confession-message:nth-child(even) {
+    align-self: flex-end;
+    border-top-right-radius: 0;
 }
 
 .confession-input-container {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './ConfessionPage.css';
 import axios from 'axios';
+import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
 
 function ConfessionPage() {
     const [confession, setConfession] = useState('');
@@ -25,7 +26,7 @@ function ConfessionPage() {
         if (confession.trim() === '') return;
         try {
             const response = await axios.post('https://hello-anonymous.onrender.com/api/confession/messages', { text: confession });
-            setConfessions([...confessions, response.data]);
+            setConfessions((prev) => [...prev, response.data]);
             setConfession('');
             scrollToBottom();
         } catch (error) {
@@ -41,14 +42,45 @@ function ConfessionPage() {
         confessionsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
+    const groupMessagesByDate = (messages) => {
+        const groups = {};
+        messages.forEach((msg) => {
+            const date = new Date(msg.timestamp);
+            const key = date.toDateString();
+            if (!groups[key]) {
+                groups[key] = [];
+            }
+            groups[key].push(msg);
+        });
+        return groups;
+    };
+
+    const renderDateLabel = (dateStr) => {
+        const date = new Date(dateStr);
+        if (isToday(date)) return 'Today';
+        if (isYesterday(date)) return 'Yesterday';
+        if (isThisWeek(date)) return format(date, 'EEEE'); // Monday, Tuesday...
+        return format(date, 'MMMM d, yyyy'); // e.g. May 21, 2025
+    };
+
+    const groupedConfessions = groupMessagesByDate(confessions);
+
     return (
         <div className="confession-container">
             <div className="confession-header">Confession Room</div>
 
             <div className="confession-messages">
-                {confessions.map((msg, index) => (
-                    <div key={index} className="confession-message">
-                        {msg.text}
+                {Object.entries(groupedConfessions).map(([date, msgs], i) => (
+                    <div key={i}>
+                        <div className="date-label">{renderDateLabel(date)}</div>
+                        {msgs.map((msg, index) => (
+                            <div key={index} className="confession-message">
+                                <div>{msg.text}</div>
+                                <div className="message-time">
+                                    {format(new Date(msg.timestamp), 'h:mm a')}
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 ))}
                 <div ref={confessionsEndRef}></div>

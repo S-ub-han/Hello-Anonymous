@@ -76,3 +76,18 @@
     border-top: 1px solid #000000;
     z-index: 8;
 }
+
+.date-label {
+    text-align: center;
+    color: #ccc;
+    font-size: 0.85em;
+    margin: 10px 0;
+}
+
+.message-time {
+    font-size: 0.7em;
+    text-align: right;
+    margin-top: 5px;
+    color: #bbbbbb;
+}
+

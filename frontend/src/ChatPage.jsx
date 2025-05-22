@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './ChatPage.css';
 import axios from 'axios';
+import { format, isToday, isYesterday, isThisWeek, parseISO } from 'date-fns';
 
 function ChatPage() {
     const [message, setMessage] = useState('');
@@ -25,7 +26,7 @@ function ChatPage() {
         if (message.trim() === '') return;
         try {
             const response = await axios.post('https://hello-anonymous.onrender.com/api/chat/messages', { text: message });
-            setMessages([...messages, response.data]);
+            setMessages((prev) => [...prev, response.data]);
             setMessage('');
             scrollToBottom();
         } catch (error) {
@@ -41,14 +42,45 @@ function ChatPage() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
+    const groupMessagesByDate = (messages) => {
+        const groups = {};
+        messages.forEach((msg) => {
+            const date = new Date(msg.timestamp);
+            const key = date.toDateString();
+            if (!groups[key]) {
+                groups[key] = [];
+            }
+            groups[key].push(msg);
+        });
+        return groups;
+    };
+
+    const renderDateLabel = (dateStr) => {
+        const date = new Date(dateStr);
+        if (isToday(date)) return 'Today';
+        if (isYesterday(date)) return 'Yesterday';
+        if (isThisWeek(date)) return format(date, 'EEEE'); // Monday, Tuesday etc.
+        return format(date, 'MMMM d, yyyy'); // May 14, 2025
+    };
+
+    const groupedMessages = groupMessagesByDate(messages);
+
     return (
         <div className="chat-container">
             <div className="chat-header">Chat Room</div>
 
             <div className="chat-messages">
-                {messages.map((msg, index) => (
-                    <div key={index} className="chat-message">
-                        {msg.text}
+                {Object.entries(groupedMessages).map(([date, msgs], i) => (
+                    <div key={i}>
+                        <div className="date-label">{renderDateLabel(date)}</div>
+                        {msgs.map((msg, index) => (
+                            <div key={index} className="chat-message">
+                                <div>{msg.text}</div>
+                                <div className="message-time">
+                                    {format(new Date(msg.timestamp), 'h:mm a')}
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 ))}
                 <div ref={messagesEndRef}></div>
