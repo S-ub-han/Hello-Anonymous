@@ -97,7 +97,7 @@ function ChatPage() {
                 <button onClick={handleSendMessage}>Send</button>
             </div>
 
-            <div className="footer">Developed by Subhan Khan</div>
+            <div className="footer">100% Anonymous - Even the developer can't trace you</div>
         </div>
     );
 }
