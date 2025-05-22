@@ -6,7 +6,10 @@ import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
 function ConfessionPage() {
     const [confession, setConfession] = useState('');
     const [confessions, setConfessions] = useState([]);
+    const [disableSend, setDisableSend] = useState(false);
     const confessionsEndRef = useRef(null);
+    const repeatCountRef = useRef(0);
+    const lastMessageRef = useRef('');
 
     const fetchConfessions = useCallback(async () => {
         try {
@@ -23,7 +26,21 @@ function ConfessionPage() {
     }, [fetchConfessions]);
 
     const handleSendConfession = async () => {
-        if (confession.trim() === '') return;
+        if (confession.trim() === '' || disableSend) return;
+
+        if (confession === lastMessageRef.current) {
+            repeatCountRef.current += 1;
+        } else {
+            repeatCountRef.current = 1;
+            lastMessageRef.current = confession;
+        }
+
+        if (repeatCountRef.current >= 2) {
+            setDisableSend(true);
+            setTimeout(() => setDisableSend(false), 20000);
+            return;
+        }
+
         try {
             const response = await axios.post('https://hello-anonymous.onrender.com/api/confession/messages', { text: confession });
             setConfessions((prev) => [...prev, response.data]);
@@ -59,8 +76,8 @@ function ConfessionPage() {
         const date = new Date(dateStr);
         if (isToday(date)) return 'Today';
         if (isYesterday(date)) return 'Yesterday';
-        if (isThisWeek(date)) return format(date, 'EEEE'); // Monday, Tuesday...
-        return format(date, 'MMMM d, yyyy'); // e.g. May 21, 2025
+        if (isThisWeek(date)) return format(date, 'EEEE');
+        return format(date, 'MMMM d, yyyy');
     };
 
     const groupedConfessions = groupMessagesByDate(confessions);
@@ -94,7 +111,9 @@ function ConfessionPage() {
                     onKeyPress={handleKeyPress}
                     placeholder="Type a confession..."
                 />
-                <button onClick={handleSendConfession}>Send</button>
+                <button onClick={handleSendConfession} disabled={disableSend}>
+                    {disableSend ? 'Wait...' : 'Send'}
+                </button>
             </div>
 
             <div className="footer">"Your confession stays anonymous - Forever. This space is for you"</div>

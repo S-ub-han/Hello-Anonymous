@@ -6,7 +6,10 @@ import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
 function ChatPage() {
     const [message, setMessage] = useState('');
     const [messages, setMessages] = useState([]);
+    const [disableSend, setDisableSend] = useState(false);
     const messagesEndRef = useRef(null);
+    const repeatCountRef = useRef(0);
+    const lastMessageRef = useRef('');
 
     const fetchMessages = useCallback(async () => {
         try {
@@ -23,7 +26,21 @@ function ChatPage() {
     }, [fetchMessages]);
 
     const handleSendMessage = async () => {
-        if (message.trim() === '') return;
+        if (message.trim() === '' || message.length > 250 || disableSend) return;
+
+        if (message === lastMessageRef.current) {
+            repeatCountRef.current += 1;
+        } else {
+            repeatCountRef.current = 1;
+            lastMessageRef.current = message;
+        }
+
+        if (repeatCountRef.current >= 3) {
+            setDisableSend(true);
+            setTimeout(() => setDisableSend(false), 20000); // 20 seconds
+            return;
+        }
+
         try {
             const response = await axios.post('https://hello-anonymous.onrender.com/api/chat/messages', { text: message });
             setMessages((prev) => [...prev, response.data]);
@@ -59,8 +76,8 @@ function ChatPage() {
         const date = new Date(dateStr);
         if (isToday(date)) return 'Today';
         if (isYesterday(date)) return 'Yesterday';
-        if (isThisWeek(date)) return format(date, 'EEEE'); // Monday, Tuesday etc.
-        return format(date, 'MMMM d, yyyy'); // May 14, 2025
+        if (isThisWeek(date)) return format(date, 'EEEE');
+        return format(date, 'MMMM d, yyyy');
     };
 
     const groupedMessages = groupMessagesByDate(messages);
@@ -93,8 +110,11 @@ function ChatPage() {
                     onChange={(e) => setMessage(e.target.value)}
                     onKeyPress={handleKeyPress}
                     placeholder="Type a message..."
+                    maxLength={250}
                 />
-                <button onClick={handleSendMessage}>Send</button>
+                <button onClick={handleSendMessage} disabled={disableSend}>
+                    {disableSend ? 'Wait...' : 'Send'}
+                </button>
             </div>
 
             <div className="footer">100% Anonymous - Even the developer can't trace you</div>
