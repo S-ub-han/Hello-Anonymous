@@ -35,7 +35,7 @@ function ChatPage() {
         lastMessageRef.current = message;
     }
 
-    if (repeatCountRef.current >= 7) {
+    if (repeatCountRef.current >= 6) {
         setDisableSend(true);
         setTimeout(() => setDisableSend(false), 20000); // 20 seconds
         return;

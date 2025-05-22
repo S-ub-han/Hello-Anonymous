@@ -35,7 +35,7 @@ function ConfessionPage() {
         lastMessageRef.current = confession;
     }
 
-    if (repeatCountRef.current >= 7) {
+    if (repeatCountRef.current >= 5) {
         setDisableSend(true);
         setTimeout(() => setDisableSend(false), 20000); // 20 seconds
         return;
