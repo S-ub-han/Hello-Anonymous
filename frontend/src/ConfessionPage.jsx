@@ -97,7 +97,7 @@ function ConfessionPage() {
                 <button onClick={handleSendConfession}>Send</button>
             </div>
 
-            <div className="footer">Developed by Subhan Khan</div>
+            <div className="footer">"Your confession stays anonymous - Forever. This space is for you"</div>
         </div>
     );
 }

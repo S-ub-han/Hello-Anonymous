@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './ChatPage.css';
 import axios from 'axios';
-import { format, isToday, isYesterday, isThisWeek, parseISO } from 'date-fns';
+import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
 
 function ChatPage() {
     const [message, setMessage] = useState('');

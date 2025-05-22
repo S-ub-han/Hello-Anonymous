@@ -23,7 +23,7 @@
     flex-grow: 1;
     overflow-y: auto;
     padding: 15px;
-    background-color: #333333;
+    background-color: #324368;
 }
 
 .chat-message {
@@ -70,9 +70,9 @@
 .footer {
     text-align: center;
     color: #ffffff;
-    font-size: 0.8em;
+    font-size: 0.6em;
     background-color: #000000;
-    padding: 5px 0;
+    padding: 2px 0;
     border-top: 1px solid #000000;
     z-index: 8;
 }
