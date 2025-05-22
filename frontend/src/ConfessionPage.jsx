@@ -26,30 +26,31 @@ function ConfessionPage() {
     }, [fetchConfessions]);
 
     const handleSendConfession = async () => {
-        if (confession.trim() === '' || disableSend) return;
+    if (confession.trim() === '' || disableSend) return;
 
-        if (confession === lastMessageRef.current) {
-            repeatCountRef.current += 1;
-        } else {
-            repeatCountRef.current = 1;
-            lastMessageRef.current = confession;
-        }
+    if (confession === lastMessageRef.current) {
+        repeatCountRef.current += 1;
+    } else {
+        repeatCountRef.current = 1;
+        lastMessageRef.current = confession;
+    }
 
-        if (repeatCountRef.current >= 2) {
-            setDisableSend(true);
-            setTimeout(() => setDisableSend(false), 20000);
-            return;
-        }
+    if (repeatCountRef.current >= 7) {
+        setDisableSend(true);
+        setTimeout(() => setDisableSend(false), 20000); // 20 seconds
+        return;
+    }
 
-        try {
-            const response = await axios.post('https://hello-anonymous.onrender.com/api/confession/messages', { text: confession });
-            setConfessions((prev) => [...prev, response.data]);
-            setConfession('');
-            scrollToBottom();
-        } catch (error) {
-            console.error('Error sending confession:', error);
-        }
-    };
+    try {
+        const response = await axios.post('https://hello-anonymous.onrender.com/api/confession/messages', { text: confession });
+        setConfessions((prev) => [...prev, response.data]);
+        setConfession('');
+        scrollToBottom();
+    } catch (error) {
+        console.error('Error sending confession:', error);
+    }
+};
+
 
     const handleKeyPress = (e) => {
         if (e.key === 'Enter') handleSendConfession();

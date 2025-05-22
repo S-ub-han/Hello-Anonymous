@@ -26,30 +26,31 @@ function ChatPage() {
     }, [fetchMessages]);
 
     const handleSendMessage = async () => {
-        if (message.trim() === '' || message.length > 250 || disableSend) return;
+    if (message.trim() === '' || message.length > 250 || disableSend) return;
 
-        if (message === lastMessageRef.current) {
-            repeatCountRef.current += 1;
-        } else {
-            repeatCountRef.current = 1;
-            lastMessageRef.current = message;
-        }
+    if (message === lastMessageRef.current) {
+        repeatCountRef.current += 1;
+    } else {
+        repeatCountRef.current = 1;
+        lastMessageRef.current = message;
+    }
 
-        if (repeatCountRef.current >= 3) {
-            setDisableSend(true);
-            setTimeout(() => setDisableSend(false), 20000); // 20 seconds
-            return;
-        }
+    if (repeatCountRef.current >= 7) {
+        setDisableSend(true);
+        setTimeout(() => setDisableSend(false), 20000); // 20 seconds
+        return;
+    }
 
-        try {
-            const response = await axios.post('https://hello-anonymous.onrender.com/api/chat/messages', { text: message });
-            setMessages((prev) => [...prev, response.data]);
-            setMessage('');
-            scrollToBottom();
-        } catch (error) {
-            console.error('Error sending message:', error);
-        }
+    try {
+        const response = await axios.post('https://hello-anonymous.onrender.com/api/chat/messages', { text: message });
+        setMessages((prev) => [...prev, response.data]);
+        setMessage('');
+        scrollToBottom();
+    } catch (error) {
+        console.error('Error sending message:', error);
+    }
     };
+
 
     const handleKeyPress = (e) => {
         if (e.key === 'Enter') handleSendMessage();
