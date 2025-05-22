@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const cron = require('node-cron');
 require('dotenv').config();
 
 const app = express();
@@ -22,57 +23,74 @@ mongoose.connection.on('error', (err) => {
 // Message Models
 const Message = mongoose.model('Message', new mongoose.Schema({
   text: { type: String, required: true },
-  timestamp: { type: Date, default: Date.now }
+  timestamp: { type: Date, default: Date.now, index: true }
 }));
 
 const Confession = mongoose.model('Confession', new mongoose.Schema({
   text: { type: String, required: true },
-  timestamp: { type: Date, default: Date.now }
+  timestamp: { type: Date, default: Date.now, index: true }
 }));
 
-// Storage Limits (70% for messages, 30% for confessions)
-const MAX_CHAT_SIZE_MB = 358;  // 70% of 512MB
-const MAX_CONFESSION_SIZE_MB = 154;  // 30% of 512MB
+// Storage Limits
+const MAX_CHAT_SIZE_MB = 300;
+const MAX_CONFESSION_SIZE_MB = 100;
 
-// Function to check and delete oldest messages if limit is reached
+// Delete oldest 50%
+async function deleteOldest50Percent(Model) {
+  const totalCount = await Model.countDocuments();
+  const deleteCount = Math.floor(totalCount / 2);
+  const oldestDocs = await Model.find().sort({ timestamp: 1 }).limit(deleteCount);
+  const idsToDelete = oldestDocs.map(doc => doc._id);
+  await Model.deleteMany({ _id: { $in: idsToDelete } });
+}
+
+// Manage storage
 async function manageStorage() {
   try {
-    // Check chat messages size
     const chatStats = await Message.collection.stats();
     const chatSizeMB = chatStats.storageSize / (1024 * 1024);
-    while (chatSizeMB > MAX_CHAT_SIZE_MB) {
-      const oldestMessage = await Message.findOne().sort({ timestamp: 1 });
-      if (oldestMessage) await Message.deleteOne({ _id: oldestMessage._id });
+    if (chatSizeMB > MAX_CHAT_SIZE_MB) {
+      await deleteOldest50Percent(Message);
     }
 
-    // Check confession messages size
     const confessionStats = await Confession.collection.stats();
     const confessionSizeMB = confessionStats.storageSize / (1024 * 1024);
-    while (confessionSizeMB > MAX_CONFESSION_SIZE_MB) {
-      const oldestConfession = await Confession.findOne().sort({ timestamp: 1 });
-      if (oldestConfession) await Confession.deleteOne({ _id: oldestConfession._id });
+    if (confessionSizeMB > MAX_CONFESSION_SIZE_MB) {
+      await deleteOldest50Percent(Confession);
     }
   } catch (error) {
     console.error('Error managing storage:', error);
   }
 }
 
-// Chat Messages API
+// Scheduled cleanup every 15 days at midnight
+cron.schedule('0 0 */15 * *', async () => {
+  console.log('Running 15-day auto-delete cleanup');
+  try {
+    await deleteOldest50Percent(Message);
+    await deleteOldest50Percent(Confession);
+  } catch (error) {
+    console.error('Scheduled cleanup error:', error);
+  }
+});
+
+// GET Chat Messages - Latest 100
 app.get('/api/chat/messages', async (req, res) => {
   try {
-    const messages = await Message.find().sort({ timestamp: 1 });
-    res.json(messages);
+    const messages = await Message.find().sort({ timestamp: -1 }).limit(100);
+    res.json(messages.reverse());
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to fetch messages' });
   }
 });
 
+// POST Chat Message
 app.post('/api/chat/messages', async (req, res) => {
   try {
     const message = new Message({ text: req.body.text });
     await message.save();
-    manageStorage();
+    manageStorage(); // async call
     res.json(message);
   } catch (error) {
     console.error(error);
@@ -80,22 +98,23 @@ app.post('/api/chat/messages', async (req, res) => {
   }
 });
 
-// Confession Messages API
+// GET Confession Messages - Latest 100
 app.get('/api/confession/messages', async (req, res) => {
   try {
-    const confessions = await Confession.find().sort({ timestamp: 1 });
-    res.json(confessions);
+    const confessions = await Confession.find().sort({ timestamp: -1 }).limit(100);
+    res.json(confessions.reverse());
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to fetch confessions' });
   }
 });
 
+// POST Confession Message
 app.post('/api/confession/messages', async (req, res) => {
   try {
     const confession = new Confession({ text: req.body.text });
     await confession.save();
-    manageStorage();
+    manageStorage(); // async call
     res.json(confession);
   } catch (error) {
     console.error(error);
