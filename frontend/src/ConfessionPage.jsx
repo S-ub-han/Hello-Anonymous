@@ -11,10 +11,27 @@ function ConfessionPage() {
     const repeatCountRef = useRef(0);
     const lastMessageRef = useRef('');
 
+    // Generate unique clientId
+    const generateClientId = () => 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
     const fetchConfessions = useCallback(async () => {
         try {
+            // Load from local storage first
+            const localConfessions = JSON.parse(localStorage.getItem('confessions')) || [];
+            setConfessions(localConfessions);
+            scrollToBottom();
+
+            // Fetch from backend
             const response = await axios.get('https://hello-anonymous.onrender.com/api/confession/messages');
-            setConfessions(response.data);
+            const serverConfessions = response.data;
+
+            // Merge local and server confessions (avoid duplicates by clientId)
+            const mergedConfessions = [
+                ...localConfessions.filter(c => !c.synced),
+                ...serverConfessions.filter(sc => !localConfessions.some(lc => lc.clientId === sc.clientId))
+            ];
+            localStorage.setItem('confessions', JSON.stringify(mergedConfessions));
+            setConfessions(mergedConfessions);
             scrollToBottom();
         } catch (error) {
             console.error('Error fetching confessions:', error);
@@ -41,11 +58,33 @@ function ConfessionPage() {
             return;
         }
 
+        const newConfession = {
+            text: confession,
+            timestamp: new Date(),
+            clientId: generateClientId(),
+            synced: false
+        };
+
+        // Save to local storage and update UI
+        const updatedConfessions = [...confessions, newConfession];
+        localStorage.setItem('confessions', JSON.stringify(updatedConfessions));
+        setConfessions(updatedConfessions);
+        setConfession('');
+        scrollToBottom();
+
+        // Sync with backend
         try {
-            const response = await axios.post('https://hello-anonymous.onrender.com/api/confession/messages', { text: confession });
-            setConfessions((prev) => [...prev, response.data]);
-            setConfession('');
-            scrollToBottom();
+            const response = await axios.post('https://hello-anonymous.onrender.com/api/confession/messages', {
+                text: confession,
+                clientId: newConfession.clientId
+            });
+            const serverConfession = response.data;
+            // Update local storage with synced confession
+            const syncedConfessions = updatedConfessions.map(c =>
+                c.clientId === newConfession.clientId ? { ...serverConfession, synced: true } : c
+            );
+            localStorage.setItem('confessions', JSON.stringify(syncedConfessions));
+            setConfessions(syncedConfessions);
         } catch (error) {
             console.error('Error sending confession:', error);
         }
@@ -91,7 +130,7 @@ function ConfessionPage() {
                     <div key={i}>
                         <div className="date-label">{renderDateLabel(date)}</div>
                         {msgs.map((msg, index) => (
-                            <div key={index} className="confession-message">
+                            <div key={msg.clientId || index} className="confession-message">
                                 <div>{msg.text}</div>
                                 <div className="message-time">
                                     {format(new Date(msg.timestamp), 'h:mm a')}

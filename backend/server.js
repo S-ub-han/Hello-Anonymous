@@ -2,20 +2,20 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const cron = require('node-cron');
-const compression = require('compression'); // Added for response compression
+const compression = require('compression');
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(compression()); // Added compression middleware
+app.use(compression());
 
 // MongoDB Connection
 const mongoURI = process.env.MONGO_URI || 'mongodb+srv://subhankhann95:MsRLzJIVLouXlfdP@cluster0.s5f4zdn.mongodb.net/hello_anonymous?retryWrites=true&w=majority';
 mongoose.connect(mongoURI, {
-  maxPoolSize: 10, // Added connection pooling
-  minPoolSize: 2, // Ensure minimum connections
-  serverSelectionTimeoutMS: 5000, // Faster server selection
+  maxPoolSize: 10,
+  minPoolSize: 2,
+  serverSelectionTimeoutMS: 5000,
 });
 
 mongoose.connection.on('connected', () => {
@@ -29,20 +29,22 @@ mongoose.connection.on('error', (err) => {
 // Message Models
 const Message = mongoose.model('Message', new mongoose.Schema({
   text: { type: String, required: true },
-  timestamp: { type: Date, default: Date.now, index: true }
+  timestamp: { type: Date, default: Date.now, index: true },
+  clientId: { type: String, index: true, sparse: true }
 }, {
-  toJSON: { virtuals: false, transform: (doc, ret) => { // Optimize JSON output
-    delete ret.__v; // Remove __v field
+  toJSON: { virtuals: false, transform: (doc, ret) => {
+    delete ret.__v;
     return ret;
   }}
 }));
 
 const Confession = mongoose.model('Confession', new mongoose.Schema({
   text: { type: String, required: true },
-  timestamp: { type: Date, default: Date.now, index: true }
+  timestamp: { type: Date, default: Date.now, index: true },
+  clientId: { type: String, index: true, sparse: true }
 }, {
-  toJSON: { virtuals: false, transform: (doc, ret) => { // Optimize JSON output
-    delete ret.__v; // Remove __v field
+  toJSON: { virtuals: false, transform: (doc, ret) => {
+    delete ret.__v;
     return ret;
   }}
 }));
@@ -53,9 +55,9 @@ const MAX_CONFESSION_SIZE_MB = 100;
 
 // Delete oldest 50%
 async function deleteOldest50Percent(Model) {
-  const totalCount = await Model.countDocuments().exec(); // Explicit exec for clarity
+  const totalCount = await Model.countDocuments().exec();
   const deleteCount = Math.floor(totalCount / 2);
-  const oldestDocs = await Model.find({}, '_id').sort({ timestamp: 1 }).limit(deleteCount).lean(); // Use lean for faster query
+  const oldestDocs = await Model.find({}, '_id').sort({ timestamp: 1 }).limit(deleteCount).lean();
   const idsToDelete = oldestDocs.map(doc => doc._id);
   await Model.deleteMany({ _id: { $in: idsToDelete } }).exec();
 }
@@ -93,7 +95,7 @@ cron.schedule('0 0 */15 * *', async () => {
 // GET Chat Messages - Latest 100
 app.get('/api/chat/messages', async (req, res) => {
   try {
-    const messages = await Message.find({}, 'text timestamp').sort({ timestamp: -1 }).limit(100).lean(); // Select fields, use lean
+    const messages = await Message.find({}, 'text timestamp clientId').sort({ timestamp: -1 }).limit(100).lean();
     res.json(messages.reverse());
   } catch (error) {
     console.error(error);
@@ -104,9 +106,16 @@ app.get('/api/chat/messages', async (req, res) => {
 // POST Chat Message
 app.post('/api/chat/messages', async (req, res) => {
   try {
-    const message = new Message({ text: req.body.text });
+    const { text, clientId } = req.body;
+    if (clientId) {
+      const existingMessage = await Message.findOne({ clientId }).lean();
+      if (existingMessage) {
+        return res.json(existingMessage);
+      }
+    }
+    const message = new Message({ text, clientId });
     await message.save();
-    manageStorage(); // async call
+    manageStorage();
     res.json(message);
   } catch (error) {
     console.error(error);
@@ -117,7 +126,7 @@ app.post('/api/chat/messages', async (req, res) => {
 // GET Confession Messages - Latest 100
 app.get('/api/confession/messages', async (req, res) => {
   try {
-    const confessions = await Confession.find({}, 'text timestamp').sort({ timestamp: -1 }).limit(100).lean(); // Select fields, use lean
+    const confessions = await Confession.find({}, 'text timestamp clientId').sort({ timestamp: -1 }).limit(100).lean();
     res.json(confessions.reverse());
   } catch (error) {
     console.error(error);
@@ -128,9 +137,16 @@ app.get('/api/confession/messages', async (req, res) => {
 // POST Confession Message
 app.post('/api/confession/messages', async (req, res) => {
   try {
-    const confession = new Confession({ text: req.body.text });
+    const { text, clientId } = req.body;
+    if (clientId) {
+      const existingConfession = await Confession.findOne({ clientId }).lean();
+      if (existingConfession) {
+        return res.json(existingConfession);
+      }
+    }
+    const confession = new Confession({ text, clientId });
     await confession.save();
-    manageStorage(); // async call
+    manageStorage();
     res.json(confession);
   } catch (error) {
     console.error(error);

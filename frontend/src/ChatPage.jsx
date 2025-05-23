@@ -11,10 +11,27 @@ function ChatPage() {
     const repeatCountRef = useRef(0);
     const lastMessageRef = useRef('');
 
+    // Generate unique clientId
+    const generateClientId = () => 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
     const fetchMessages = useCallback(async () => {
         try {
+            // Load from local storage first
+            const localMessages = JSON.parse(localStorage.getItem('chatMessages')) || [];
+            setMessages(localMessages);
+            scrollToBottom();
+
+            // Fetch from backend
             const response = await axios.get('https://hello-anonymous.onrender.com/api/chat/messages');
-            setMessages(response.data);
+            const serverMessages = response.data;
+
+            // Merge local and server messages (avoid duplicates by clientId)
+            const mergedMessages = [
+                ...localMessages.filter(m => !m.synced),
+                ...serverMessages.filter(sm => !localMessages.some(lm => lm.clientId === sm.clientId))
+            ];
+            localStorage.setItem('chatMessages', JSON.stringify(mergedMessages));
+            setMessages(mergedMessages);
             scrollToBottom();
         } catch (error) {
             console.error('Error fetching messages:', error);
@@ -41,11 +58,33 @@ function ChatPage() {
             return;
         }
 
+        const newMessage = {
+            text: message,
+            timestamp: new Date(),
+            clientId: generateClientId(),
+            synced: false
+        };
+
+        // Save to local storage and update UI
+        const updatedMessages = [...messages, newMessage];
+        localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
+        setMessages(updatedMessages);
+        setMessage('');
+        scrollToBottom();
+
+        // Sync with backend
         try {
-            const response = await axios.post('https://hello-anonymous.onrender.com/api/chat/messages', { text: message });
-            setMessages((prev) => [...prev, response.data]);
-            setMessage('');
-            scrollToBottom();
+            const response = await axios.post('https://hello-anonymous.onrender.com/api/chat/messages', {
+                text: message,
+                clientId: newMessage.clientId
+            });
+            const serverMessage = response.data;
+            // Update local storage with synced message
+            const syncedMessages = updatedMessages.map(m =>
+                m.clientId === newMessage.clientId ? { ...serverMessage, synced: true } : m
+            );
+            localStorage.setItem('chatMessages', JSON.stringify(syncedMessages));
+            setMessages(syncedMessages);
         } catch (error) {
             console.error('Error sending message:', error);
         }
@@ -91,7 +130,7 @@ function ChatPage() {
                     <div key={i}>
                         <div className="date-label">{renderDateLabel(date)}</div>
                         {msgs.map((msg, index) => (
-                            <div key={index} className="chat-message">
+                            <div key={msg.clientId || index} className="chat-message">
                                 <div>{msg.text}</div>
                                 <div className="message-time">
                                     {format(new Date(msg.timestamp), 'h:mm a')}
