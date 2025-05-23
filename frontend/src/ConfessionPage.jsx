@@ -1,125 +1,62 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import './ConfessionPage.css';
+import React, { useEffect, useState } from 'react';
+import io from 'socket.io-client';
 import axios from 'axios';
-import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
+import './ConfessionPage.css';
 
-function ConfessionPage() {
-    const [confession, setConfession] = useState('');
-    const [confessions, setConfessions] = useState([]);
-    const [disableSend, setDisableSend] = useState(false);
-    const confessionsEndRef = useRef(null);
-    const repeatCountRef = useRef(0);
-    const lastMessageRef = useRef('');
+const socket = io('http://localhost:5000');
 
-    const fetchConfessions = useCallback(async () => {
-        try {
-            const response = await axios.get('https://hello-anonymous.onrender.com/api/confession/messages');
-            setConfessions(response.data);
-            scrollToBottom();
-        } catch (error) {
-            console.error('Error fetching confessions:', error);
-        }
-    }, []);
+const ConfessionPage = () => {
+  const [confession, setConfession] = useState('');
+  const [confessions, setConfessions] = useState([]);
 
-    useEffect(() => {
-        fetchConfessions();
-    }, [fetchConfessions]);
+  useEffect(() => {
+    fetchConfessions();
+    socket.on('newConfession', (msg) => {
+      setConfessions((prev) => [...prev, msg]);
+    });
+    return () => socket.off('newConfession');
+  }, []);
 
-    const handleSendConfession = async () => {
-    if (confession.trim() === '' || disableSend) return;
-
-    if (confession === lastMessageRef.current) {
-        repeatCountRef.current += 1;
-    } else {
-        repeatCountRef.current = 1;
-        lastMessageRef.current = confession;
-    }
-
-    if (repeatCountRef.current >= 5) {
-        setDisableSend(true);
-        setTimeout(() => setDisableSend(false), 20000); // 20 seconds
-        return;
-    }
-
+  const fetchConfessions = async () => {
     try {
-        const response = await axios.post('https://hello-anonymous.onrender.com/api/confession/messages', { text: confession });
-        setConfessions((prev) => [...prev, response.data]);
-        setConfession('');
-        scrollToBottom();
-    } catch (error) {
-        console.error('Error sending confession:', error);
+      const res = await axios.get('http://localhost:5000/api/confession/messages');
+      setConfessions(res.data);
+    } catch (err) {
+      console.error('Failed to fetch confessions:', err);
     }
+  };
+
+  const sendConfession = async () => {
+    if (!confession.trim()) return;
+    try {
+      const res = await axios.post('http://localhost:5000/api/confession/messages', { content: confession });
+      setConfession('');
+    } catch (err) {
+      console.error('Failed to send confession:', err);
+    }
+  };
+
+  return (
+    <div className="confession-container">
+      <div className="confessions">
+        {confessions.map((msg, i) => (
+          <div key={i} className="confession">
+            {msg.content}
+          </div>
+        ))}
+      </div>
+      <div className="input-container">
+        <input
+          value={confession}
+          onChange={(e) => setConfession(e.target.value)}
+          placeholder="Write your confession..."
+          onKeyPress={(e) => e.key === 'Enter' && sendConfession()}
+        />
+        <button onClick={sendConfession}>Confess</button>
+      </div>
+    </div>
+  );
 };
 
-
-    const handleKeyPress = (e) => {
-        if (e.key === 'Enter') handleSendConfession();
-    };
-
-    const scrollToBottom = () => {
-        confessionsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    };
-
-    const groupMessagesByDate = (messages) => {
-        const groups = {};
-        messages.forEach((msg) => {
-            const date = new Date(msg.timestamp);
-            const key = date.toDateString();
-            if (!groups[key]) {
-                groups[key] = [];
-            }
-            groups[key].push(msg);
-        });
-        return groups;
-    };
-
-    const renderDateLabel = (dateStr) => {
-        const date = new Date(dateStr);
-        if (isToday(date)) return 'Today';
-        if (isYesterday(date)) return 'Yesterday';
-        if (isThisWeek(date)) return format(date, 'EEEE');
-        return format(date, 'MMMM d, yyyy');
-    };
-
-    const groupedConfessions = groupMessagesByDate(confessions);
-
-    return (
-        <div className="confession-container">
-            <div className="confession-header">Confession Room</div>
-
-            <div className="confession-messages">
-                {Object.entries(groupedConfessions).map(([date, msgs], i) => (
-                    <div key={i}>
-                        <div className="date-label">{renderDateLabel(date)}</div>
-                        {msgs.map((msg, index) => (
-                            <div key={index} className="confession-message">
-                                <div>{msg.text}</div>
-                                <div className="message-time">
-                                    {format(new Date(msg.timestamp), 'h:mm a')}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                ))}
-                <div ref={confessionsEndRef}></div>
-            </div>
-
-            <div className="confession-input-container">
-                <input
-                    type="text"
-                    value={confession}
-                    onChange={(e) => setConfession(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Type a confession..."
-                />
-                <button onClick={handleSendConfession} disabled={disableSend}>
-                    {disableSend ? 'Wait...' : 'Send'}
-                </button>
-            </div>
-
-            <div className="footer">"Your confession stays anonymous - Forever. This space is for you"</div>
-        </div>
-    );
-}
-
 export default ConfessionPage;
+

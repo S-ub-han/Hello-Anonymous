@@ -2,15 +2,21 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const cron = require('node-cron');
+const compression = require('compression'); // Added for response compression
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(compression()); // Added compression middleware
 
 // MongoDB Connection
 const mongoURI = process.env.MONGO_URI || 'mongodb+srv://subhankhann95:MsRLzJIVLouXlfdP@cluster0.s5f4zdn.mongodb.net/hello_anonymous?retryWrites=true&w=majority';
-mongoose.connect(mongoURI);
+mongoose.connect(mongoURI, {
+  maxPoolSize: 10, // Added connection pooling
+  minPoolSize: 2, // Ensure minimum connections
+  serverSelectionTimeoutMS: 5000, // Faster server selection
+});
 
 mongoose.connection.on('connected', () => {
   console.log('Connected to MongoDB successfully');
@@ -24,11 +30,21 @@ mongoose.connection.on('error', (err) => {
 const Message = mongoose.model('Message', new mongoose.Schema({
   text: { type: String, required: true },
   timestamp: { type: Date, default: Date.now, index: true }
+}, {
+  toJSON: { virtuals: false, transform: (doc, ret) => { // Optimize JSON output
+    delete ret.__v; // Remove __v field
+    return ret;
+  }}
 }));
 
 const Confession = mongoose.model('Confession', new mongoose.Schema({
   text: { type: String, required: true },
   timestamp: { type: Date, default: Date.now, index: true }
+}, {
+  toJSON: { virtuals: false, transform: (doc, ret) => { // Optimize JSON output
+    delete ret.__v; // Remove __v field
+    return ret;
+  }}
 }));
 
 // Storage Limits
@@ -37,11 +53,11 @@ const MAX_CONFESSION_SIZE_MB = 100;
 
 // Delete oldest 50%
 async function deleteOldest50Percent(Model) {
-  const totalCount = await Model.countDocuments();
+  const totalCount = await Model.countDocuments().exec(); // Explicit exec for clarity
   const deleteCount = Math.floor(totalCount / 2);
-  const oldestDocs = await Model.find().sort({ timestamp: 1 }).limit(deleteCount);
+  const oldestDocs = await Model.find({}, '_id').sort({ timestamp: 1 }).limit(deleteCount).lean(); // Use lean for faster query
   const idsToDelete = oldestDocs.map(doc => doc._id);
-  await Model.deleteMany({ _id: { $in: idsToDelete } });
+  await Model.deleteMany({ _id: { $in: idsToDelete } }).exec();
 }
 
 // Manage storage
@@ -77,7 +93,7 @@ cron.schedule('0 0 */15 * *', async () => {
 // GET Chat Messages - Latest 100
 app.get('/api/chat/messages', async (req, res) => {
   try {
-    const messages = await Message.find().sort({ timestamp: -1 }).limit(100);
+    const messages = await Message.find({}, 'text timestamp').sort({ timestamp: -1 }).limit(100).lean(); // Select fields, use lean
     res.json(messages.reverse());
   } catch (error) {
     console.error(error);
@@ -101,7 +117,7 @@ app.post('/api/chat/messages', async (req, res) => {
 // GET Confession Messages - Latest 100
 app.get('/api/confession/messages', async (req, res) => {
   try {
-    const confessions = await Confession.find().sort({ timestamp: -1 }).limit(100);
+    const confessions = await Confession.find({}, 'text timestamp').sort({ timestamp: -1 }).limit(100).lean(); // Select fields, use lean
     res.json(confessions.reverse());
   } catch (error) {
     console.error(error);
