@@ -7,11 +7,13 @@ function ChatPage() {
     const [message, setMessage] = useState('');
     const [messages, setMessages] = useState([]);
     const [disableSend, setDisableSend] = useState(false);
+    const [error, setError] = useState(null);
     const messagesEndRef = useRef(null);
     const repeatCountRef = useRef(0);
     const lastMessageRef = useRef('');
 
-    // Generate unique clientId
+    const API_URL = process.env.REACT_APP_API_URL || 'https://hello-anonymous.onrender.com';
+
     const generateClientId = () => 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 
     const fetchMessages = useCallback(async () => {
@@ -22,10 +24,10 @@ function ChatPage() {
             scrollToBottom();
 
             // Fetch from backend
-            const response = await axios.get('https://hello-anonymous.onrender.com/api/chat/messages');
+            const response = await axios.get(`${API_URL}/api/chat/messages`);
             const serverMessages = response.data;
 
-            // Merge local and server messages (avoid duplicates by clientId)
+            // Merge local and server messages
             const mergedMessages = [
                 ...localMessages.filter(m => !m.synced),
                 ...serverMessages.filter(sm => !localMessages.some(lm => lm.clientId === sm.clientId))
@@ -33,10 +35,12 @@ function ChatPage() {
             localStorage.setItem('chatMessages', JSON.stringify(mergedMessages));
             setMessages(mergedMessages);
             scrollToBottom();
+            setError(null);
         } catch (error) {
             console.error('Error fetching messages:', error);
+            setError('Failed to fetch messages. Please try again.');
         }
-    }, []);
+    }, [API_URL]);
 
     useEffect(() => {
         fetchMessages();
@@ -54,7 +58,7 @@ function ChatPage() {
 
         if (repeatCountRef.current >= 6) {
             setDisableSend(true);
-            setTimeout(() => setDisableSend(false), 20000); // 20 seconds
+            setTimeout(() => setDisableSend(false), 20000);
             return;
         }
 
@@ -72,21 +76,32 @@ function ChatPage() {
         setMessage('');
         scrollToBottom();
 
-        // Sync with backend
-        try {
-            const response = await axios.post('https://hello-anonymous.onrender.com/api/chat/messages', {
-                text: message,
-                clientId: newMessage.clientId
-            });
-            const serverMessage = response.data;
-            // Update local storage with synced message
-            const syncedMessages = updatedMessages.map(m =>
-                m.clientId === newMessage.clientId ? { ...serverMessage, synced: true } : m
-            );
-            localStorage.setItem('chatMessages', JSON.stringify(syncedMessages));
-            setMessages(syncedMessages);
-        } catch (error) {
-            console.error('Error sending message:', error);
+        // Sync with backend with retry
+        let attempts = 0;
+        while (attempts < 3) {
+            try {
+                const response = await axios.post(`${API_URL}/api/chat/messages`, {
+                    text: message,
+                    clientId: newMessage.clientId
+                });
+                const serverMessage = response.data;
+                const syncedMessages = updatedMessages.map(m =>
+                    m.clientId === newMessage.clientId ? { ...serverMessage, synced: true } : m
+                );
+                localStorage.setItem('chatMessages', JSON.stringify(syncedMessages));
+                setMessages(syncedMessages);
+                setError(null);
+                // Fetch latest messages for other users
+                fetchMessages();
+                break;
+            } catch (error) {
+                attempts++;
+                if (attempts === 3) {
+                    console.error('Max retries reached:', error);
+                    setError('Failed to send message. It’s saved locally and will sync when online.');
+                }
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+            }
         }
     };
 
@@ -124,13 +139,13 @@ function ChatPage() {
     return (
         <div className="chat-container">
             <div className="chat-header">Chat Room</div>
-
+            {error && <div className="error-message">{error}</div>}
             <div className="chat-messages">
                 {Object.entries(groupedMessages).map(([date, msgs], i) => (
                     <div key={i}>
                         <div className="date-label">{renderDateLabel(date)}</div>
-                        {msgs.map((msg, index) => (
-                            <div key={msg.clientId || index} className="chat-message">
+                        {msgs.map((msg) => (
+                            <div key={msg.clientId || msg._id} className="chat-message">
                                 <div>{msg.text}</div>
                                 <div className="message-time">
                                     {format(new Date(msg.timestamp), 'h:mm a')}
@@ -141,7 +156,6 @@ function ChatPage() {
                 ))}
                 <div ref={messagesEndRef}></div>
             </div>
-
             <div className="chat-input-container">
                 <input
                     type="text"
@@ -155,7 +169,6 @@ function ChatPage() {
                     {disableSend ? 'Wait...' : 'Send'}
                 </button>
             </div>
-
             <div className="footer">100% Anonymous - Even the developer can't trace you</div>
         </div>
     );

@@ -6,16 +6,21 @@ const compression = require('compression');
 require('dotenv').config();
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: ['https://<username>.github.io', 'http://localhost:3000'], // Replace with your GitHub Pages URL
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type']
+}));
 app.use(express.json());
 app.use(compression());
 
 // MongoDB Connection
-const mongoURI = process.env.MONGO_URI || 'mongodb+srv://subhankhann95:MsRLzJIVLouXlfdP@cluster0.s5f4zdn.mongodb.net/hello_anonymous?retryWrites=true&w=majority';
+const mongoURI = process.env.MONGO_URI || 'mongodb+srv://subhankhann95:MsRLzJIVLouXlfdP@cluster0.s5f4zdn.mongodb.net/hello_anonymous?retryWrites=true&w=1';
 mongoose.connect(mongoURI, {
   maxPoolSize: 10,
   minPoolSize: 2,
   serverSelectionTimeoutMS: 5000,
+  writeConcern: { w: 1, wtimeout: 3000 } // Faster writes
 });
 
 mongoose.connection.on('connected', () => {
@@ -62,7 +67,7 @@ async function deleteOldest50Percent(Model) {
   await Model.deleteMany({ _id: { $in: idsToDelete } }).exec();
 }
 
-// Manage storage
+// Manage storage (background task)
 async function manageStorage() {
   try {
     const chatStats = await Message.collection.stats();
@@ -92,6 +97,11 @@ cron.schedule('0 0 */15 * *', async () => {
   }
 });
 
+// Health Check Endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date() });
+});
+
 // GET Chat Messages - Latest 100
 app.get('/api/chat/messages', async (req, res) => {
   try {
@@ -107,15 +117,22 @@ app.get('/api/chat/messages', async (req, res) => {
 app.post('/api/chat/messages', async (req, res) => {
   try {
     const { text, clientId } = req.body;
+    if (!text) return res.status(400).json({ error: 'Text is required' });
+
     if (clientId) {
-      const existingMessage = await Message.findOne({ clientId }).lean();
+      const existingMessage = await Message.findOne({ clientId }, 'text timestamp clientId').lean();
       if (existingMessage) {
         return res.json(existingMessage);
       }
     }
-    const message = new Message({ text, clientId });
-    await message.save();
-    manageStorage();
+
+    const message = { text, clientId, timestamp: new Date() };
+    const result = await Message.collection.insertOne(message, { writeConcern: { w: 1 } });
+    message._id = result.insertedId;
+
+    // Run storage management in background
+    manageStorage().catch(err => console.error('Background storage management error:', err));
+
     res.json(message);
   } catch (error) {
     console.error(error);
@@ -138,15 +155,22 @@ app.get('/api/confession/messages', async (req, res) => {
 app.post('/api/confession/messages', async (req, res) => {
   try {
     const { text, clientId } = req.body;
+    if (!text) return res.status(400).json({ error: 'Text is required' });
+
     if (clientId) {
-      const existingConfession = await Confession.findOne({ clientId }).lean();
+      const existingConfession = await Confession.findOne({ clientId }, 'text timestamp clientId').lean();
       if (existingConfession) {
         return res.json(existingConfession);
       }
     }
-    const confession = new Confession({ text, clientId });
-    await confession.save();
-    manageStorage();
+
+    const confession = { text, clientId, timestamp: new Date() };
+    const result = await Confession.collection.insertOne(confession, { writeConcern: { w: 1 } });
+    confession._id = result.insertedId;
+
+    // Run storage management in background
+    manageStorage().catch(err => console.error('Background storage management error:', err));
+
     res.json(confession);
   } catch (error) {
     console.error(error);
