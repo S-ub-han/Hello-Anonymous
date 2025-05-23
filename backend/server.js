@@ -2,25 +2,20 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const cron = require('node-cron');
-const compression = require('compression');
+const compression = require('compression'); // Added for response compression
 require('dotenv').config();
 
 const app = express();
-app.use(cors({
-  origin: ['https://<username>.github.io', 'http://localhost:3000'], // Replace with your GitHub Pages URL
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type']
-}));
+app.use(cors());
 app.use(express.json());
-app.use(compression());
+app.use(compression()); // Added compression middleware
 
 // MongoDB Connection
-const mongoURI = process.env.MONGO_URI || 'mongodb+srv://subhankhann95:MsRLzJIVLouXlfdP@cluster0.s5f4zdn.mongodb.net/hello_anonymous?retryWrites=true&w=1';
+const mongoURI = process.env.MONGO_URI || 'mongodb+srv://subhankhann95:MsRLzJIVLouXlfdP@cluster0.s5f4zdn.mongodb.net/hello_anonymous?retryWrites=true&w=majority';
 mongoose.connect(mongoURI, {
-  maxPoolSize: 10,
-  minPoolSize: 2,
-  serverSelectionTimeoutMS: 5000,
-  writeConcern: { w: 1, wtimeout: 3000 }
+  maxPoolSize: 10, // Added connection pooling
+  minPoolSize: 2, // Ensure minimum connections
+  serverSelectionTimeoutMS: 5000, // Faster server selection
 });
 
 mongoose.connection.on('connected', () => {
@@ -31,38 +26,53 @@ mongoose.connection.on('error', (err) => {
   console.error('MongoDB connection error:', err);
 });
 
-// Unified Message Model
+// Message Models
 const Message = mongoose.model('Message', new mongoose.Schema({
   text: { type: String, required: true },
-  type: { type: String, enum: ['chat', 'confession'], required: true },
-  timestamp: { type: Date, default: Date.now, index: true },
-  clientId: { type: String, index: true, sparse: true }
+  timestamp: { type: Date, default: Date.now, index: true }
 }, {
-  toJSON: { virtuals: false, transform: (doc, ret) => {
-    delete ret.__v;
+  toJSON: { virtuals: false, transform: (doc, ret) => { // Optimize JSON output
+    delete ret.__v; // Remove __v field
+    return ret;
+  }}
+}));
+
+const Confession = mongoose.model('Confession', new mongoose.Schema({
+  text: { type: String, required: true },
+  timestamp: { type: Date, default: Date.now, index: true }
+}, {
+  toJSON: { virtuals: false, transform: (doc, ret) => { // Optimize JSON output
+    delete ret.__v; // Remove __v field
     return ret;
   }}
 }));
 
 // Storage Limits
-const MAX_SIZE_MB = 300;
+const MAX_CHAT_SIZE_MB = 300;
+const MAX_CONFESSION_SIZE_MB = 100;
 
 // Delete oldest 50%
-async function deleteOldest50Percent() {
-  const totalCount = await Message.countDocuments().exec();
+async function deleteOldest50Percent(Model) {
+  const totalCount = await Model.countDocuments().exec(); // Explicit exec for clarity
   const deleteCount = Math.floor(totalCount / 2);
-  const oldestDocs = await Message.find({}, '_id').sort({ timestamp: 1 }).limit(deleteCount).lean();
+  const oldestDocs = await Model.find({}, '_id').sort({ timestamp: 1 }).limit(deleteCount).lean(); // Use lean for faster query
   const idsToDelete = oldestDocs.map(doc => doc._id);
-  await Message.deleteMany({ _id: { $in: idsToDelete } }).exec();
+  await Model.deleteMany({ _id: { $in: idsToDelete } }).exec();
 }
 
-// Manage storage (background task)
+// Manage storage
 async function manageStorage() {
   try {
-    const stats = await Message.collection.stats();
-    const sizeMB = stats.storageSize / (1024 * 1024);
-    if (sizeMB > MAX_SIZE_MB) {
-      await deleteOldest50Percent();
+    const chatStats = await Message.collection.stats();
+    const chatSizeMB = chatStats.storageSize / (1024 * 1024);
+    if (chatSizeMB > MAX_CHAT_SIZE_MB) {
+      await deleteOldest50Percent(Message);
+    }
+
+    const confessionStats = await Confession.collection.stats();
+    const confessionSizeMB = confessionStats.storageSize / (1024 * 1024);
+    if (confessionSizeMB > MAX_CONFESSION_SIZE_MB) {
+      await deleteOldest50Percent(Confession);
     }
   } catch (error) {
     console.error('Error managing storage:', error);
@@ -73,23 +83,17 @@ async function manageStorage() {
 cron.schedule('0 0 */15 * *', async () => {
   console.log('Running 15-day auto-delete cleanup');
   try {
-    await deleteOldest50Percent();
+    await deleteOldest50Percent(Message);
+    await deleteOldest50Percent(Confession);
   } catch (error) {
     console.error('Scheduled cleanup error:', error);
   }
 });
 
-// Health Check Endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date() });
-});
-
-// GET Messages - Latest 100, filtered by type
-app.get('/api/messages', async (req, res) => {
+// GET Chat Messages - Latest 100
+app.get('/api/chat/messages', async (req, res) => {
   try {
-    const { type } = req.query;
-    const query = type ? { type } : {};
-    const messages = await Message.find(query, 'text type timestamp clientId').sort({ timestamp: -1 }).limit(100).lean();
+    const messages = await Message.find({}, 'text timestamp').sort({ timestamp: -1 }).limit(100).lean(); // Select fields, use lean
     res.json(messages.reverse());
   } catch (error) {
     console.error(error);
@@ -97,31 +101,40 @@ app.get('/api/messages', async (req, res) => {
   }
 });
 
-// POST Message
-app.post('/api/messages', async (req, res) => {
+// POST Chat Message
+app.post('/api/chat/messages', async (req, res) => {
   try {
-    const { text, type, clientId } = req.body;
-    if (!text || !type || !['chat', 'confession'].includes(type)) {
-      return res.status(400).json({ error: 'Text and valid type (chat/confession) are required' });
-    }
-
-    if (clientId) {
-      const existingMessage = await Message.findOne({ clientId }, 'text type timestamp clientId').lean();
-      if (existingMessage) {
-        return res.json(existingMessage);
-      }
-    }
-
-    const message = { text, type, clientId, timestamp: new Date() };
-    const result = await Message.collection.insertOne(message, { writeConcern: { w: 1 } });
-    message._id = result.insertedId;
-
-    manageStorage().catch(err => console.error('Background storage management error:', err));
-
+    const message = new Message({ text: req.body.text });
+    await message.save();
+    manageStorage(); // async call
     res.json(message);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to save message' });
+  }
+});
+
+// GET Confession Messages - Latest 100
+app.get('/api/confession/messages', async (req, res) => {
+  try {
+    const confessions = await Confession.find({}, 'text timestamp').sort({ timestamp: -1 }).limit(100).lean(); // Select fields, use lean
+    res.json(confessions.reverse());
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch confessions' });
+  }
+});
+
+// POST Confession Message
+app.post('/api/confession/messages', async (req, res) => {
+  try {
+    const confession = new Confession({ text: req.body.text });
+    await confession.save();
+    manageStorage(); // async call
+    res.json(confession);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to save confession' });
   }
 });
 
