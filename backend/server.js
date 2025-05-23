@@ -34,7 +34,7 @@ mongoose.connection.on('error', (err) => {
 // Unified Message Model
 const Message = mongoose.model('Message', new mongoose.Schema({
   text: { type: String, required: true },
-  type: { type: String, enum: ['chat', 'confession'], required: true }, // Added type field
+  type: { type: String, enum: ['chat', 'confession'], required: true },
   timestamp: { type: Date, default: Date.now, index: true },
   clientId: { type: String, index: true, sparse: true }
 }, {
@@ -84,10 +84,12 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date() });
 });
 
-// GET Messages - Latest 100
+// GET Messages - Latest 100, filtered by type
 app.get('/api/messages', async (req, res) => {
   try {
-    const messages = await Message.find({}, 'text type timestamp clientId').sort({ timestamp: -1 }).limit(100).lean();
+    const { type } = req.query;
+    const query = type ? { type } : {};
+    const messages = await Message.find(query, 'text type timestamp clientId').sort({ timestamp: -1 }).limit(100).lean();
     res.json(messages.reverse());
   } catch (error) {
     console.error(error);

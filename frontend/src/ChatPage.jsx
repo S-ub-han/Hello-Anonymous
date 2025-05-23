@@ -19,12 +19,12 @@ function ChatPage() {
     const fetchMessages = useCallback(async () => {
         try {
             // Load from local storage first
-            const localMessages = JSON.parse(localStorage.getItem('messages')) || [];
+            const localMessages = JSON.parse(localStorage.getItem('chatMessages')) || [];
             setMessages(localMessages);
             scrollToBottom();
 
-            // Fetch from backend
-            const response = await axios.get(`${API_URL}/api/messages`);
+            // Fetch from backend (only chat messages)
+            const response = await axios.get(`${API_URL}/api/messages?type=chat`);
             const serverMessages = response.data;
 
             // Merge local and server messages
@@ -32,7 +32,7 @@ function ChatPage() {
                 ...localMessages.filter(m => !m.synced),
                 ...serverMessages.filter(sm => !localMessages.some(lm => lm.clientId === sm.clientId))
             ];
-            localStorage.setItem('messages', JSON.stringify(mergedMessages));
+            localStorage.setItem('chatMessages', JSON.stringify(mergedMessages));
             setMessages(mergedMessages);
             scrollToBottom();
             setError(null);
@@ -54,10 +54,10 @@ function ChatPage() {
                 const syncedMessages = updatedMessages.map(m =>
                     m.clientId === clientId ? { ...serverMessage, synced: true } : m
                 );
-                localStorage.setItem('messages', JSON.stringify(syncedMessages));
+                localStorage.setItem('chatMessages', JSON.stringify(syncedMessages));
                 setMessages(syncedMessages);
                 setError(null);
-                await fetchMessages(); // Fetch latest messages
+                await fetchMessages(); // Fetch latest chat messages
                 return true;
             } catch (error) {
                 if (attempts === 2) {
@@ -97,7 +97,7 @@ function ChatPage() {
 
         // Save to local storage and update UI
         const updatedMessages = [...messages, newMessage];
-        localStorage.setItem('messages', JSON.stringify(updatedMessages));
+        localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
         setMessages(updatedMessages);
         setMessage('');
         scrollToBottom();
@@ -147,10 +147,7 @@ function ChatPage() {
                         <div className="date-label">{renderDateLabel(date)}</div>
                         {msgs.map((msg) => (
                             <div key={msg.clientId || msg._id} className="chat-message">
-                                <div>
-                                    {msg.type === 'confession' && <span className="confession-tag">[Confession] </span>}
-                                    {msg.text}
-                                </div>
+                                <div>{msg.text}</div>
                                 <div className="message-time">
                                     {format(new Date(msg.timestamp), 'h:mm a')}
                                 </div>
