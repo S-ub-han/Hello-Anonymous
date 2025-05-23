@@ -98,3 +98,12 @@
     text-align: center;
     margin: 10px 0;
 }
+
+.confession-tag {
+    color: #ff4500;
+    font-weight: bold;
+}
+.chat-tag {
+    color: #1e90ff;
+    font-weight: bold;
+}
