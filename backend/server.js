@@ -20,7 +20,7 @@ mongoose.connect(mongoURI, {
   maxPoolSize: 10,
   minPoolSize: 2,
   serverSelectionTimeoutMS: 5000,
-  writeConcern: { w: 1, wtimeout: 3000 } // Faster writes
+  writeConcern: { w: 1, wtimeout: 3000 }
 });
 
 mongoose.connection.on('connected', () => {
@@ -31,20 +31,10 @@ mongoose.connection.on('error', (err) => {
   console.error('MongoDB connection error:', err);
 });
 
-// Message Models
+// Unified Message Model
 const Message = mongoose.model('Message', new mongoose.Schema({
   text: { type: String, required: true },
-  timestamp: { type: Date, default: Date.now, index: true },
-  clientId: { type: String, index: true, sparse: true }
-}, {
-  toJSON: { virtuals: false, transform: (doc, ret) => {
-    delete ret.__v;
-    return ret;
-  }}
-}));
-
-const Confession = mongoose.model('Confession', new mongoose.Schema({
-  text: { type: String, required: true },
+  type: { type: String, enum: ['chat', 'confession'], required: true }, // Added type field
   timestamp: { type: Date, default: Date.now, index: true },
   clientId: { type: String, index: true, sparse: true }
 }, {
@@ -55,31 +45,24 @@ const Confession = mongoose.model('Confession', new mongoose.Schema({
 }));
 
 // Storage Limits
-const MAX_CHAT_SIZE_MB = 300;
-const MAX_CONFESSION_SIZE_MB = 100;
+const MAX_SIZE_MB = 300;
 
 // Delete oldest 50%
-async function deleteOldest50Percent(Model) {
-  const totalCount = await Model.countDocuments().exec();
+async function deleteOldest50Percent() {
+  const totalCount = await Message.countDocuments().exec();
   const deleteCount = Math.floor(totalCount / 2);
-  const oldestDocs = await Model.find({}, '_id').sort({ timestamp: 1 }).limit(deleteCount).lean();
+  const oldestDocs = await Message.find({}, '_id').sort({ timestamp: 1 }).limit(deleteCount).lean();
   const idsToDelete = oldestDocs.map(doc => doc._id);
-  await Model.deleteMany({ _id: { $in: idsToDelete } }).exec();
+  await Message.deleteMany({ _id: { $in: idsToDelete } }).exec();
 }
 
 // Manage storage (background task)
 async function manageStorage() {
   try {
-    const chatStats = await Message.collection.stats();
-    const chatSizeMB = chatStats.storageSize / (1024 * 1024);
-    if (chatSizeMB > MAX_CHAT_SIZE_MB) {
-      await deleteOldest50Percent(Message);
-    }
-
-    const confessionStats = await Confession.collection.stats();
-    const confessionSizeMB = confessionStats.storageSize / (1024 * 1024);
-    if (confessionSizeMB > MAX_CONFESSION_SIZE_MB) {
-      await deleteOldest50Percent(Confession);
+    const stats = await Message.collection.stats();
+    const sizeMB = stats.storageSize / (1024 * 1024);
+    if (sizeMB > MAX_SIZE_MB) {
+      await deleteOldest50Percent();
     }
   } catch (error) {
     console.error('Error managing storage:', error);
@@ -90,8 +73,7 @@ async function manageStorage() {
 cron.schedule('0 0 */15 * *', async () => {
   console.log('Running 15-day auto-delete cleanup');
   try {
-    await deleteOldest50Percent(Message);
-    await deleteOldest50Percent(Confession);
+    await deleteOldest50Percent();
   } catch (error) {
     console.error('Scheduled cleanup error:', error);
   }
@@ -102,10 +84,10 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date() });
 });
 
-// GET Chat Messages - Latest 100
-app.get('/api/chat/messages', async (req, res) => {
+// GET Messages - Latest 100
+app.get('/api/messages', async (req, res) => {
   try {
-    const messages = await Message.find({}, 'text timestamp clientId').sort({ timestamp: -1 }).limit(100).lean();
+    const messages = await Message.find({}, 'text type timestamp clientId').sort({ timestamp: -1 }).limit(100).lean();
     res.json(messages.reverse());
   } catch (error) {
     console.error(error);
@@ -113,68 +95,31 @@ app.get('/api/chat/messages', async (req, res) => {
   }
 });
 
-// POST Chat Message
-app.post('/api/chat/messages', async (req, res) => {
+// POST Message
+app.post('/api/messages', async (req, res) => {
   try {
-    const { text, clientId } = req.body;
-    if (!text) return res.status(400).json({ error: 'Text is required' });
+    const { text, type, clientId } = req.body;
+    if (!text || !type || !['chat', 'confession'].includes(type)) {
+      return res.status(400).json({ error: 'Text and valid type (chat/confession) are required' });
+    }
 
     if (clientId) {
-      const existingMessage = await Message.findOne({ clientId }, 'text timestamp clientId').lean();
+      const existingMessage = await Message.findOne({ clientId }, 'text type timestamp clientId').lean();
       if (existingMessage) {
         return res.json(existingMessage);
       }
     }
 
-    const message = { text, clientId, timestamp: new Date() };
+    const message = { text, type, clientId, timestamp: new Date() };
     const result = await Message.collection.insertOne(message, { writeConcern: { w: 1 } });
     message._id = result.insertedId;
 
-    // Run storage management in background
     manageStorage().catch(err => console.error('Background storage management error:', err));
 
     res.json(message);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to save message' });
-  }
-});
-
-// GET Confession Messages - Latest 100
-app.get('/api/confession/messages', async (req, res) => {
-  try {
-    const confessions = await Confession.find({}, 'text timestamp clientId').sort({ timestamp: -1 }).limit(100).lean();
-    res.json(confessions.reverse());
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to fetch confessions' });
-  }
-});
-
-// POST Confession Message
-app.post('/api/confession/messages', async (req, res) => {
-  try {
-    const { text, clientId } = req.body;
-    if (!text) return res.status(400).json({ error: 'Text is required' });
-
-    if (clientId) {
-      const existingConfession = await Confession.findOne({ clientId }, 'text timestamp clientId').lean();
-      if (existingConfession) {
-        return res.json(existingConfession);
-      }
-    }
-
-    const confession = { text, clientId, timestamp: new Date() };
-    const result = await Confession.collection.insertOne(confession, { writeConcern: { w: 1 } });
-    confession._id = result.insertedId;
-
-    // Run storage management in background
-    manageStorage().catch(err => console.error('Background storage management error:', err));
-
-    res.json(confession);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to save confession' });
   }
 });
 

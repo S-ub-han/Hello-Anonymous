@@ -19,12 +19,12 @@ function ChatPage() {
     const fetchMessages = useCallback(async () => {
         try {
             // Load from local storage first
-            const localMessages = JSON.parse(localStorage.getItem('chatMessages')) || [];
+            const localMessages = JSON.parse(localStorage.getItem('messages')) || [];
             setMessages(localMessages);
             scrollToBottom();
 
             // Fetch from backend
-            const response = await axios.get(`${API_URL}/api/chat/messages`);
+            const response = await axios.get(`${API_URL}/api/messages`);
             const serverMessages = response.data;
 
             // Merge local and server messages
@@ -32,7 +32,7 @@ function ChatPage() {
                 ...localMessages.filter(m => !m.synced),
                 ...serverMessages.filter(sm => !localMessages.some(lm => lm.clientId === sm.clientId))
             ];
-            localStorage.setItem('chatMessages', JSON.stringify(mergedMessages));
+            localStorage.setItem('messages', JSON.stringify(mergedMessages));
             setMessages(mergedMessages);
             scrollToBottom();
             setError(null);
@@ -45,6 +45,31 @@ function ChatPage() {
     useEffect(() => {
         fetchMessages();
     }, [fetchMessages]);
+
+    const syncMessageWithRetry = useCallback(async (text, type, clientId, updatedMessages) => {
+        for (let attempts = 0; attempts < 3; attempts++) {
+            try {
+                const response = await axios.post(`${API_URL}/api/messages`, { text, type, clientId });
+                const serverMessage = response.data;
+                const syncedMessages = updatedMessages.map(m =>
+                    m.clientId === clientId ? { ...serverMessage, synced: true } : m
+                );
+                localStorage.setItem('messages', JSON.stringify(syncedMessages));
+                setMessages(syncedMessages);
+                setError(null);
+                await fetchMessages(); // Fetch latest messages
+                return true;
+            } catch (error) {
+                if (attempts === 2) {
+                    console.error('Max retries reached:', error);
+                    setError('Failed to send message. It’s saved locally and will sync when online.');
+                    return false;
+                }
+                await new Promise(resolve => setTimeout(resolve, 1000 * (attempts + 1)));
+            }
+        }
+        return false;
+    }, [API_URL, fetchMessages]);
 
     const handleSendMessage = async () => {
         if (message.trim() === '' || message.length > 250 || disableSend) return;
@@ -64,6 +89,7 @@ function ChatPage() {
 
         const newMessage = {
             text: message,
+            type: 'chat',
             timestamp: new Date(),
             clientId: generateClientId(),
             synced: false
@@ -71,38 +97,13 @@ function ChatPage() {
 
         // Save to local storage and update UI
         const updatedMessages = [...messages, newMessage];
-        localStorage.setItem('chatMessages', JSON.stringify(updatedMessages));
+        localStorage.setItem('messages', JSON.stringify(updatedMessages));
         setMessages(updatedMessages);
         setMessage('');
         scrollToBottom();
 
-        // Sync with backend with retry
-        let attempts = 0;
-        while (attempts < 3) {
-            try {
-                const response = await axios.post(`${API_URL}/api/chat/messages`, {
-                    text: message,
-                    clientId: newMessage.clientId
-                });
-                const serverMessage = response.data;
-                const syncedMessages = updatedMessages.map(m =>
-                    m.clientId === newMessage.clientId ? { ...serverMessage, synced: true } : m
-                );
-                localStorage.setItem('chatMessages', JSON.stringify(syncedMessages));
-                setMessages(syncedMessages);
-                setError(null);
-                // Fetch latest messages for other users
-                fetchMessages();
-                break;
-            } catch (error) {
-                attempts++;
-                if (attempts === 3) {
-                    console.error('Max retries reached:', error);
-                    setError('Failed to send message. It’s saved locally and will sync when online.');
-                }
-                await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
-            }
-        }
+        // Sync with backend
+        syncMessageWithRetry(message, 'chat', newMessage.clientId, updatedMessages);
     };
 
     const handleKeyPress = (e) => {
@@ -146,7 +147,10 @@ function ChatPage() {
                         <div className="date-label">{renderDateLabel(date)}</div>
                         {msgs.map((msg) => (
                             <div key={msg.clientId || msg._id} className="chat-message">
-                                <div>{msg.text}</div>
+                                <div>
+                                    {msg.type === 'confession' && <span className="confession-tag">[Confession] </span>}
+                                    {msg.text}
+                                </div>
                                 <div className="message-time">
                                     {format(new Date(msg.timestamp), 'h:mm a')}
                                 </div>
