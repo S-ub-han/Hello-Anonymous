@@ -1,6 +1,8 @@
+// src/ChatPage.jsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './ChatPage.css';
 import axios from 'axios';
+import socket from './socket';
 import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
 
 function ChatPage() {
@@ -13,16 +15,24 @@ function ChatPage() {
 
     const fetchMessages = useCallback(async () => {
         try {
-            const response = await axios.get('https://hello-anonymous.onrender.com/api/chat/messages');
-            setMessages(response.data);
-            scrollToBottom();
-        } catch (error) {
-            console.error('Error fetching messages:', error);
+            const res = await axios.get('https://hello-anonymous.onrender.com/api/chat/messages');
+            setMessages(res.data);
+        } catch (err) {
+            console.error('Error fetching messages:', err);
         }
     }, []);
 
     useEffect(() => {
         fetchMessages();
+
+        socket.on('chatMessage', (msg) => {
+            setMessages(prev => [...prev, msg]);
+            scrollToBottom();
+        });
+
+        return () => {
+            socket.off('chatMessage');
+        };
     }, [fetchMessages]);
 
     const handleSendMessage = async () => {
@@ -37,17 +47,17 @@ function ChatPage() {
 
         if (repeatCountRef.current >= 6) {
             setDisableSend(true);
-            setTimeout(() => setDisableSend(false), 20000); // 20 seconds
+            setTimeout(() => setDisableSend(false), 20000);
             return;
         }
 
         try {
-            const response = await axios.post('https://hello-anonymous.onrender.com/api/chat/messages', { text: message });
-            setMessages((prev) => [...prev, response.data]);
+            const res = await axios.post('https://hello-anonymous.onrender.com/api/chat/messages', { text: message });
+            socket.emit('chatMessage', res.data);
             setMessage('');
             scrollToBottom();
-        } catch (error) {
-            console.error('Error sending message:', error);
+        } catch (err) {
+            console.error('Error sending message:', err);
         }
     };
 
@@ -64,9 +74,7 @@ function ChatPage() {
         messages.forEach((msg) => {
             const date = new Date(msg.timestamp);
             const key = date.toDateString();
-            if (!groups[key]) {
-                groups[key] = [];
-            }
+            if (!groups[key]) groups[key] = [];
             groups[key].push(msg);
         });
         return groups;
@@ -85,7 +93,6 @@ function ChatPage() {
     return (
         <div className="chat-container">
             <div className="chat-header">Chat Room</div>
-
             <div className="chat-messages">
                 {Object.entries(groupedMessages).map(([date, msgs], i) => (
                     <div key={i}>
@@ -93,9 +100,7 @@ function ChatPage() {
                         {msgs.map((msg, index) => (
                             <div key={index} className="chat-message">
                                 <div>{msg.text}</div>
-                                <div className="message-time">
-                                    {format(new Date(msg.timestamp), 'h:mm a')}
-                                </div>
+                                <div className="message-time">{format(new Date(msg.timestamp), 'h:mm a')}</div>
                             </div>
                         ))}
                     </div>

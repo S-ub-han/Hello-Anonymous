@@ -1,6 +1,8 @@
+// src/ConfessionPage.jsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './ConfessionPage.css';
 import axios from 'axios';
+import socket from './socket';
 import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
 
 function ConfessionPage() {
@@ -13,16 +15,24 @@ function ConfessionPage() {
 
     const fetchConfessions = useCallback(async () => {
         try {
-            const response = await axios.get('https://hello-anonymous.onrender.com/api/confession/messages');
-            setConfessions(response.data);
-            scrollToBottom();
-        } catch (error) {
-            console.error('Error fetching confessions:', error);
+            const res = await axios.get('https://hello-anonymous.onrender.com/api/confession/messages');
+            setConfessions(res.data);
+        } catch (err) {
+            console.error('Error fetching confessions:', err);
         }
     }, []);
 
     useEffect(() => {
         fetchConfessions();
+
+        socket.on('confessionMessage', (msg) => {
+            setConfessions(prev => [...prev, msg]);
+            scrollToBottom();
+        });
+
+        return () => {
+            socket.off('confessionMessage');
+        };
     }, [fetchConfessions]);
 
     const handleSendConfession = async () => {
@@ -37,17 +47,17 @@ function ConfessionPage() {
 
         if (repeatCountRef.current >= 5) {
             setDisableSend(true);
-            setTimeout(() => setDisableSend(false), 20000); // 20 seconds
+            setTimeout(() => setDisableSend(false), 20000);
             return;
         }
 
         try {
-            const response = await axios.post('https://hello-anonymous.onrender.com/api/confession/messages', { text: confession });
-            setConfessions((prev) => [...prev, response.data]);
+            const res = await axios.post('https://hello-anonymous.onrender.com/api/confession/messages', { text: confession });
+            socket.emit('confessionMessage', res.data);
             setConfession('');
             scrollToBottom();
-        } catch (error) {
-            console.error('Error sending confession:', error);
+        } catch (err) {
+            console.error('Error sending confession:', err);
         }
     };
 
@@ -64,9 +74,7 @@ function ConfessionPage() {
         messages.forEach((msg) => {
             const date = new Date(msg.timestamp);
             const key = date.toDateString();
-            if (!groups[key]) {
-                groups[key] = [];
-            }
+            if (!groups[key]) groups[key] = [];
             groups[key].push(msg);
         });
         return groups;
@@ -85,7 +93,6 @@ function ConfessionPage() {
     return (
         <div className="confession-container">
             <div className="confession-header">Confession Room</div>
-
             <div className="confession-messages">
                 {Object.entries(groupedConfessions).map(([date, msgs], i) => (
                     <div key={i}>
@@ -93,9 +100,7 @@ function ConfessionPage() {
                         {msgs.map((msg, index) => (
                             <div key={index} className="confession-message">
                                 <div>{msg.text}</div>
-                                <div className="message-time">
-                                    {format(new Date(msg.timestamp), 'h:mm a')}
-                                </div>
+                                <div className="message-time">{format(new Date(msg.timestamp), 'h:mm a')}</div>
                             </div>
                         ))}
                     </div>
